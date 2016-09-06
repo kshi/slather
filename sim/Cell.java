@@ -60,6 +60,7 @@ public class Cell {
 	}
 	position = new_position;	
     }
+    // grow by 1% or max possible without colliding
     protected void step(Set<Pherome> pheromes, Set<Cell> cells) {
 	Iterator<Pherome> pherome_it = pheromes.iterator();
 	double new_diameter = diameter * 1.01;

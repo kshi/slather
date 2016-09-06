@@ -18,7 +18,7 @@ public class Player implements slather.sim.Player {
     public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
 	if (player_cell.getDiameter() >= 2) // reproduce whenever possible
 	    return new Move(true, (byte)-1, (byte)-1);
-	if (memory != -1) { // follow previous direction unless it would cause a collision
+	if (memory > 0) { // follow previous direction unless it would cause a collision
 	    Point vector = extractVectorFromAngle( (int)memory);
 	    // check for collisions
 	    if (!collides( player_cell, vector, nearby_cells, nearby_pheromes))
@@ -26,15 +26,15 @@ public class Player implements slather.sim.Player {
 	}
 
 	// if no previous direction specified or if there was a collision, try random directions to go in until one doesn't collide
-	for (int i=0; i<5; i++) {
-	    int arg = gen.nextInt(180);
+	for (int i=0; i<3; i++) {
+	    int arg = gen.nextInt(180)+1;
 	    Point vector = extractVectorFromAngle(arg);
 	    if (!collides(player_cell, vector, nearby_cells, nearby_pheromes)) 
 		return new Move(vector, (byte) arg);
 	}
 
 	// if all tries fail, just chill in place
-	return new Move(new Point(0,0), (byte)-1);
+	return new Move(new Point(0,0), (byte)0);
     }
 
     // check if moving player_cell by vector collides with any nearby cell or hostile pherome

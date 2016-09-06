@@ -45,7 +45,7 @@ public class Cell {
 	Iterator<Pherome> pherome_it = pheromes.iterator();	
 	while (pherome_it.hasNext()) {
 	    Pherome next = pherome_it.next();
-	    if (new_position.distance(next.position) < diameter && player != next.player) {
+	    if (new_position.distance(next.position) < 0.5*diameter && player != next.player) {
 		System.err.println("Player " + player + " collided with hostile pherome!");
 		return;
 	    }

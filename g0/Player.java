@@ -26,7 +26,7 @@ public class Player implements slather.sim.Player {
 	}
 
 	// if no previous direction specified or if there was a collision, try random directions to go in until one doesn't collide
-	for (int i=0; i<100; i++) {
+	for (int i=0; i<5; i++) {
 	    int arg = gen.nextInt(180);
 	    Point vector = extractVectorFromAngle(arg);
 	    if (!collides(player_cell, vector, nearby_cells, nearby_pheromes)) 
@@ -49,7 +49,7 @@ public class Player implements slather.sim.Player {
 	Iterator<Pherome> pherome_it = nearby_pheromes.iterator();
 	while (pherome_it.hasNext()) {
 	    Pherome other = pherome_it.next();
-	    if (other.player == player_cell.player && destination.distance(other.position) < 0.5*player_cell.getDiameter()) 
+	    if (other.player != player_cell.player && destination.distance(other.position) < 0.5*player_cell.getDiameter()) 
 		return true;
 	}
 	return false;

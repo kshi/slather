@@ -35,7 +35,7 @@ class Simulator {
     private static long no_reproduce_turns = 100;
 
     // time per webgui frame
-    private static int refresh = 100;
+    private static int refresh = 20;
 
     // print messages to terminal
     private static boolean verbose = false;
@@ -175,7 +175,7 @@ class Simulator {
 			new_cell.memory = move.daughter_memory;
 			cells.add(new_cell);
 			score[active_player]++;
-			System.err.println("Group " + groups[active_player] + " reproduced!");
+			System.err.println("Group " + groups[active_player] + " reproduced! Score: " + score[active_player]);
 			turns_without_reproduction = 0;
 		    }
 		    else { // move the cell, updated memory, grow cell, and secrete pheromes

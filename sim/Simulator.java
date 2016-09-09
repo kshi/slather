@@ -48,21 +48,21 @@ class Simulator {
     private static Timer[] threads;
 
     // default params
-    private static int d = 10; // radius of vision of cell (in mm)
+    private static double d = 4.0; // radius of vision of cell (in mm)
     private static int t = 50; // number of turns after which pherome wears out
     private static int p = 10; // number of players. default is ten copies of g0
     private static int n = 1; // number of starting cells per player
 
-    private static ArrayList<Cell> cells = new ArrayList<Cell>();
-    private static Set<Pherome> pheromes = new HashSet<Pherome>();
+    private static Grid grid;
 
     private static int turns_without_reproduction = 0;
     
     
     private static boolean init() {
+	grid = new Grid((double)side_length, d);
 	for (int g=0; g<p; g++) {
 	    for (int j=0; j<n; j++) {
-		cells.add(new Cell( new Point(random.nextInt(side_length),random.nextInt(side_length)), g) );
+		grid.add(new Cell( new Point(random.nextInt(side_length),random.nextInt(side_length)), g) );
 	    }
 	}
 
@@ -106,37 +106,19 @@ class Simulator {
     {
 	turns_without_reproduction++;
 	// age all deposited pheromes first
-	Iterator<Pherome> it = pheromes.iterator();
-	while (it.hasNext()) {
-	    if (it.next().step())
-		it.remove();
-	}
-	
+	grid.age_pheromes();
+
+	ArrayList<Cell> cells = grid.shuffle_cells();
 	final int numCells = cells.size();
-	Collections.shuffle(cells, random);
 	for (int i=0; i<numCells; i++) { // only loop through first numCells cells, ignoring cells that are added at end of array through reproduction this turn
 	    final Cell active_cell = cells.get(i);
 	    final int active_player = active_cell.player;
 	    if (players[active_player] != null) {
 
 		// within vision radius of player_cell, supplied to player
-		Set<Cell> nearby_cells = new HashSet<Cell>();
-		Set<Pherome> nearby_pheromes = new HashSet<Pherome>();
-		for (int j=0; j<cells.size(); j++) {
-		    if (j == i)
-			continue;
-		    if (active_cell.distance(cells.get(j)) < d)
-			nearby_cells.add(cells.get(j));
-		}
-		Iterator<Pherome> pherome_it = pheromes.iterator();
-		while (pherome_it.hasNext()) {
-		    Pherome next = pherome_it.next();
-		    if (active_cell.distance(next) < d)
-			nearby_pheromes.add(next);
-		}
-
-		final Set<Cell> f_nearby_cells = new HashSet<Cell>(nearby_cells);
-		final Set<Pherome> f_nearby_pheromes = new HashSet<Pherome>(nearby_pheromes);
+		Grid.GridObjectsContainer nearby = grid.get_nearby(active_cell);
+		final Set<Cell> nearby_cells = nearby.nearby_cells;
+		final Set<Pherome> nearby_pheromes = nearby.nearby_pheromes;
 		final byte cell_memory = active_cell.memory;
 
 		// get move from player
@@ -146,7 +128,7 @@ class Simulator {
 
 			    public Move call() throws Exception
 			    {
-				return players[active_player].play(active_cell, cell_memory, f_nearby_cells, f_nearby_pheromes);
+				return players[active_player].play(active_cell, cell_memory, nearby_cells, nearby_pheromes);
 			    }
 			}, play_timeout);
 		} catch (Exception e) {
@@ -174,15 +156,18 @@ class Simulator {
 			cells.get(i).memory = move.memory;
 			new_cell.memory = move.daughter_memory;
 			cells.add(new_cell);
+			grid.add(new_cell);
 			score[active_player]++;
 			System.err.println("Group " + groups[active_player] + " reproduced! Score: " + score[active_player]);
 			turns_without_reproduction = 0;
 		    }
 		    else { // move the cell, updated memory, grow cell, and secrete pheromes
+			grid.remove(cells.get(i));
 			cells.get(i).move(move.vector, nearby_pheromes, nearby_cells);
 			cells.get(i).memory = move.memory;
-			cells.get(i).step(nearby_pheromes, nearby_cells);			
-			pheromes.add(cells.get(i).secrete(t));
+			cells.get(i).step(nearby_pheromes, nearby_cells);
+			grid.readd(cells.get(i));
+			grid.add(cells.get(i).secrete(t));
 		    }
 		}
 	    }	    
@@ -253,7 +238,7 @@ class Simulator {
 		} else if (args[a].equals("-d") || args[a].equals("--distance")) {
 		    if (++a == args.length)
 			throw new IllegalArgumentException("Missing vision distance");
-		    d = Integer.parseInt(args[a]);		    
+		    d = Double.parseDouble(args[a]);		    
 		} else if (args[a].equals("-t") || args[a].equals("--turns")) {
 		    if (++a == args.length)
 			throw new IllegalArgumentException("Missing pherome duration");
@@ -353,7 +338,7 @@ class Simulator {
     }
 
     private static String params() {
-	return Integer.toString(side_length) + "," + Integer.toString(refresh) + "," + Integer.toString(cells.size()) + "," + Integer.toString(pheromes.size());
+	return Integer.toString(side_length) + "," + Integer.toString(refresh);
     }
 
     private static String groups_state() {	
@@ -368,7 +353,8 @@ class Simulator {
 
 
     private static String cells_state()    {
-	StringBuffer buf = new StringBuffer();
+	return grid.cells_state();
+	/*	StringBuffer buf = new StringBuffer();
 	Iterator<Cell> it = cells.iterator();
 	boolean first = true;
 	while (it.hasNext()) {
@@ -379,11 +365,12 @@ class Simulator {
 		buf.append(";");
 	    buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y + "," + next.getDiameter());
 	}	    
-	return buf.toString();
+	return buf.toString();*/
     }
 
     private static String pheromes_state() {
-	StringBuffer buf = new StringBuffer();
+	return grid.pheromes_state();
+	/*	StringBuffer buf = new StringBuffer();
 	Iterator<Pherome> it = pheromes.iterator();
 	boolean first = true;
 	while (it.hasNext()) {
@@ -392,9 +379,9 @@ class Simulator {
 		first = false;
 	    else
 		buf.append(";");
-	    buf.append(next.player + "," + next.position.x + "," + next.position.y);
+	    buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y);
 	}
-	return buf.toString();
+	return buf.toString();*/
     }
     
 

@@ -22,7 +22,7 @@ public class Point {
     }
 
     public Point move(Point v) {
-	return new Point( (x+v.x) % side_length, (y+v.y) % side_length );
+	return new Point( (x+v.x+side_length) % side_length, (y+v.y+side_length) % side_length );
     }
     
 }

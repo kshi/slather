@@ -35,11 +35,16 @@ function process(data)
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // draw the room
     ctx.beginPath();
-    ctx.moveTo(x_base + 1.5,        y_base + 1.5);
+    ctx.moveTo(x_base,        y_base);
+    ctx.lineTo(x_base + size, y_base);
+    ctx.lineTo(x_base + size, y_base + size);
+    ctx.lineTo(x_base,        y_base + size);
+    ctx.lineTo(x_base,        y_base);
+/*    ctx.moveTo(x_base + 1.5,        y_base + 1.5);
     ctx.lineTo(x_base + size - 1.5, y_base + 1.5);
     ctx.lineTo(x_base + size - 1.5, y_base + size - 1.5);
     ctx.lineTo(x_base + 1.5,        y_base + size - 1.5);
-    ctx.lineTo(x_base + 1.5,        y_base + 1.5);
+    ctx.lineTo(x_base + 1.5,        y_base + 1.5);*/
     ctx.lineWidth = 3;
     ctx.strokeStyle = "black";
     ctx.stroke();

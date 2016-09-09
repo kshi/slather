@@ -46,35 +46,6 @@ public class Grid {
 	grid.get(getI(q)).get(getJ(q)).remove(q);
     }
 
-    /*public Set<Cell> nearby_cells(Cell q) {
-	Set<Cell> output = new HashSet<Cell>();
-	for (int i = Math.max(0, getI(q)-1); i < Math.min(N, getI(q)+1); i++) {
-	    for (int j = Math.max(0, getJ(q)-1); i < Math.min(N, getJ(q)+1); j++) {
-		Iterator<Cell> it = cell_grid.get(i).get(j).iterator();
-		while (it.hasNext()) {
-		    Cell next = it.next();
-		    if (q.distance(next) < d)
-			output.add(next);
-		}
-	    }
-	}
-	return output;
-    }
-    public Set<Pherome> nearby_pheromes(Cell q) {
-	Set<Pherome> output = new HashSet<Pherome>();
-	for (int i = Math.max(0, getI(q)-1); i < Math.min(N, getI(q)+1); i++) {
-	    for (int j = Math.max(0, getJ(q)-1); i < Math.min(N, getJ(q)+1); j++) {
-		Iterator<GridObject> it = grid.get(i).get(j).iterator();
-		while (it.hasNext()) {
-		    GridObject next = it.next();
-		    if (q.distance(next) < d && next instanceof Pherome)
-			output.add((Pherome) next);
-		}
-	    }
-	}
-	return output;
-    }*/
-
     public ArrayList<Cell> shuffle_cells() {
 	Collections.shuffle(cells);
 	return cells;
@@ -114,48 +85,60 @@ public class Grid {
 	}
 	return output;
     }
+    
+    public GridObjectsContainer get_nearby_loop(Cell q) {
+	GridObjectsContainer output = new GridObjectsContainer();
+	int i = (getI(q) - 2 + N) % N;
+	int j = (getJ(q) - 2 + N) % N;	
+	while (i != (getI(q) + 2) % N) {
+	    while (j != (getJ(q) + 2) % N) {
+		Iterator<GridObject> it = grid.get(i).get(j).iterator();
+		while (it.hasNext()) {
+		    GridObject next = it.next();
+		    if (q.distance(next) < d) {
+			if (next instanceof Cell && next != q)
+			    output.nearby_cells.add( (Cell)next);
+			else if (next instanceof Pherome)
+			    output.nearby_pheromes.add( (Pherome)next);
+		    }
+		}
+		i = (i+1)%N;
+		j = (j+1)%N;
+	    }
+	}
+	return output;
+    }
 
-    public String cells_state() {
-	StringBuffer buf = new StringBuffer();
-	boolean first = true;			
+
+    public String objects_state() {
+	StringBuffer cell_buf = new StringBuffer();
+	StringBuffer pherome_buf = new StringBuffer();
+	boolean cell_first = true;
+	boolean pherome_first = true;
 	for (int i = 0; i<N; i++) {
 	    for (int j = 0; j<N; j++) {
 		Iterator<GridObject> it = grid.get(i).get(j).iterator();
 		while (it.hasNext()) {
 		    GridObject next = it.next();
 		    if (next instanceof Cell) {
-			if (first)
-			    first = false;
+			if (cell_first)
+			    cell_first = false;
 			else
-			    buf.append(";");
+			    cell_buf.append(";");
 			Cell casted_next = (Cell)next;
-			buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y + "," + casted_next.getDiameter());			
+			cell_buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y + "," + casted_next.getDiameter());			
 		    }
-		}
-	    }
-	}
-	return buf.toString();
-    }
-
-    public String pheromes_state() {
-	StringBuffer buf = new StringBuffer();
-	boolean first = true;			
-	for (int i = 0; i<N; i++) {
-	    for (int j = 0; j<N; j++) {
-		Iterator<GridObject> it = grid.get(i).get(j).iterator();
-		while (it.hasNext()) {
-		    GridObject next = it.next();
-		    if (next instanceof Pherome) {
-			if (first)
-			    first = false;
+		    else if (next instanceof Pherome) {
+			if (pherome_first)
+			    pherome_first = false;
 			else
-			    buf.append(";");
-			buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y);			
+			    pherome_buf.append(";");
+			pherome_buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y);     
 		    }
 		}
 	    }
 	}
-	return buf.toString();
+	return cell_buf.toString() + "\n" + pherome_buf.toString();
     }
 
     private int getI(GridObject q) {

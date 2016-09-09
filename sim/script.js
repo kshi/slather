@@ -20,6 +20,7 @@ function process(data)
     var colors = ["red", "green", "blue", "purple", "orange", "cyan", "yellow", "hotpink", "palegreen", "maroon"];
     var y_base = 60;
     var size = canvas.height - y_base;
+    var xoffset = 30;    
     var x_base = (canvas.width - size) * 0.5;
     // parse the data
     data = data.split("\n");
@@ -35,11 +36,11 @@ function process(data)
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // draw the room
     ctx.beginPath();
-    ctx.moveTo(x_base,        y_base);
-    ctx.lineTo(x_base + size, y_base);
-    ctx.lineTo(x_base + size, y_base + size);
-    ctx.lineTo(x_base,        y_base + size);
-    ctx.lineTo(x_base,        y_base);
+    ctx.moveTo(x_base + xoffset,        y_base);
+    ctx.lineTo(x_base + size + xoffset, y_base);
+    ctx.lineTo(x_base + size + xoffset, y_base + size);
+    ctx.lineTo(x_base + xoffset,        y_base + size);
+    ctx.lineTo(x_base + xoffset,        y_base);
 /*    ctx.moveTo(x_base + 1.5,        y_base + 1.5);
     ctx.lineTo(x_base + size - 1.5, y_base + 1.5);
     ctx.lineTo(x_base + size - 1.5, y_base + size - 1.5);
@@ -49,12 +50,27 @@ function process(data)
     ctx.strokeStyle = "black";
     ctx.stroke();
 
+    // parse the scores
+    ctx.font = "18px Arial";
+    ctx.textAlign = "left";
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "darkgrey";
+    scores = data[1].split(";");
+    for (var i=0; i<scores.length; i++) {
+	coord = scores[i].split(",");
+	g = coord[0];
+	score = parse_float(coord[1]);
+	ctx.strokeText(g + " :  " + score, 0, y_base + 30*i + 30);
+	ctx.fillStyle = colors[i];
+	ctx.fillText(g + " :  " + score, 0, y_base + 30*i + 30);
+    }
+    
     // parse the cells
     cells = data[2].split(";");    
     for (var i=0; i<cells.length; i++) {
 	coord = cells[i].split(",");
 	g = parse_integer(coord[0]);
-	x = (parse_float(coord[1]) / side) * size + x_base;
+	x = (parse_float(coord[1]) / side) * size + x_base + xoffset;
 	y = (parse_float(coord[2]) / side) * size + y_base;
 	d = (parse_float(coord[3]) / side) * size;
 	ctx.beginPath();
@@ -70,7 +86,7 @@ function process(data)
 	for (var i=0; i<pheromes.length; i++) {
 	    coord = pheromes[i].split(",");
 	    g = parse_integer(coord[0]);
-	    x = (parse_float(coord[1]) / side) * size + x_base;
+	    x = (parse_float(coord[1]) / side) * size + x_base + xoffset;
 	    y = (parse_float(coord[2]) / side) * size + y_base;
 	    ctx.beginPath();
 	    ctx.arc(x,y,0.5,0,2.0*Math.PI);

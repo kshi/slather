@@ -203,7 +203,8 @@ class Simulator {
 		break;
 	    if (gui) {
 		// create dynamic content
-		String content =  params() + "\n" + groups_state() + "\n" + cells_state() + "\n" + pheromes_state();
+		//String content =  params() + "\n" + groups_state() + "\n" + cells_state() + "\n" + pheromes_state();
+		String content =  params() + "\n" + groups_state() + "\n" + grid.objects_state();
 		gui(server, content);
 	    }
 	    turn++;
@@ -344,46 +345,13 @@ class Simulator {
     private static String groups_state() {	
 	StringBuffer buf = new StringBuffer();
 	for (int g=0; g<p; g++) {
-	    if (g > 1)
+	    if (g > 0)
 		buf.append(";");
 	    buf.append(groups[g] + "," + score[g]);
 	}
 	return buf.toString();
     }
 
-
-    private static String cells_state()    {
-	return grid.cells_state();
-	/*	StringBuffer buf = new StringBuffer();
-	Iterator<Cell> it = cells.iterator();
-	boolean first = true;
-	while (it.hasNext()) {
-	    Cell next = it.next();
-	    if (first)
-		first = false;
-	    else
-		buf.append(";");
-	    buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y + "," + next.getDiameter());
-	}	    
-	return buf.toString();*/
-    }
-
-    private static String pheromes_state() {
-	return grid.pheromes_state();
-	/*	StringBuffer buf = new StringBuffer();
-	Iterator<Pherome> it = pheromes.iterator();
-	boolean first = true;
-	while (it.hasNext()) {
-	    Pherome next = it.next();
-	    if (first)
-		first = false;
-	    else
-		buf.append(";");
-	    buf.append(next.player + "," + next.getPosition().x + "," + next.getPosition().y);
-	}
-	return buf.toString();*/
-    }
-    
 
     // serve static files and return dynamic file version
     private static void gui(HTTPServer server, String content)

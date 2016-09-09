@@ -36,7 +36,7 @@ public class Cell extends GridObject{
 	while (pherome_it.hasNext()) {
 	    Pherome next = pherome_it.next();
 	    if (new_position.distance(next.getPosition()) < 0.5*diameter && player != next.player) {
-		//System.err.println("Player " + player + " collided with hostile pherome!");
+		System.err.println("Player " + player + " collided with hostile pherome!");
 		return;
 	    }
 	}
@@ -44,7 +44,7 @@ public class Cell extends GridObject{
 	while (cell_it.hasNext()) {
 	    Cell next = cell_it.next();
 	    if (distance(next) < 0.5*diameter - 0.0001) {
-		//System.err.println("Player " + player + " collided with another cell!");		
+		System.err.println("Player " + player + " collided with another cell!");		
 		return;
 	    }
 	}

@@ -43,13 +43,13 @@ public class Player implements slather.sim.Player {
 	Point destination = player_cell.getPosition().move(vector);
 	while (cell_it.hasNext()) {
 	    Cell other = cell_it.next();
-	    if ( destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter() + 0.5*other.getDiameter() + 0.1) 
+	    if ( destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter() + 0.5*other.getDiameter() + 0.00011) 
 		return true;
 	}
 	Iterator<Pherome> pherome_it = nearby_pheromes.iterator();
 	while (pherome_it.hasNext()) {
 	    Pherome other = pherome_it.next();
-	    if (other.player != player_cell.player && destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter()) 
+	    if (other.player != player_cell.player && destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter() + 0.0001) 
 		return true;
 	}
 	return false;

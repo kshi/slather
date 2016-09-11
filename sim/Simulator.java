@@ -48,14 +48,16 @@ class Simulator {
     private static Timer[] threads;
 
     // default params
-    private static double d = 4.0; // radius of vision of cell (in mm)
-    private static int t = 50; // number of turns after which pherome wears out
+    private static double d = 2.0; // radius of vision of cell (in mm)
+    private static int t = 10; // number of turns after which pherome wears out
     private static int p = 10; // number of players. default is ten copies of g0
     private static int n = 1; // number of starting cells per player
 
     private static Grid grid;
 
     private static int turns_without_reproduction = 0;
+
+    private static boolean log = true;
     
     
     private static boolean init() {
@@ -158,16 +160,22 @@ class Simulator {
 			cells.add(new_cell);
 			grid.add(new_cell);
 			score[active_player]++;
-			System.err.println("Group " + groups[active_player] + " reproduced! Score: " + score[active_player]);
+			if (log)
+			    System.err.println("Group " + groups[active_player] + " reproduced! Score: " + score[active_player]);
 			turns_without_reproduction = 0;
 		    }
 		    else { // move the cell, updated memory, grow cell, and secrete pheromes
-			grid.remove(cells.get(i));
+			boolean readd = false;
+			if (grid.shiftsGrid(cells.get(i),move.vector)) {
+			    readd = true;
+			    grid.remove(cells.get(i));
+			}
 			cells.get(i).move(move.vector, nearby_pheromes, nearby_cells);
 			cells.get(i).memory = move.memory;
 			cells.get(i).step(nearby_pheromes, nearby_cells);
-			grid.readd(cells.get(i));
 			grid.add(cells.get(i).secrete(t));
+			if (readd)
+			    grid.readd(cells.get(i));			
 		    }
 		}
 	    }	    
@@ -217,7 +225,7 @@ class Simulator {
     public static void main(String[] args)
     {
 	boolean gui = false;
-	boolean recompile = false;
+	boolean recompile = true;
 	int game_id = -1;
 	String game_path = null;
 	String play_path = null;
@@ -282,6 +290,8 @@ class Simulator {
 		    gui = true;
 		else if (args[a].equals("--recompile"))
 		    recompile = true;
+		else if (args[a].equals("--nolog"))
+		    log = false;
 		else throw new IllegalArgumentException("Unknown argument: " + args[a]);
 	    if (groups == null)
 		throw new IllegalArgumentException("Missing group name parameter");

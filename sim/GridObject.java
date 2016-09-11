@@ -12,7 +12,7 @@ public abstract class GridObject {
 	this.player = player;
     }
     
-    public double distance(GridObject other) {
+    protected double distance(GridObject other) {
 	if (other instanceof Pherome)
 	    return position.distance(other.getPosition());
 	else if (other instanceof Cell) {

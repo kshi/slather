@@ -10,6 +10,10 @@ public class Pherome extends GridObject{
 	this.max_duration = max_duration;
     }
 
+    public double distance(GridObject other) {
+	return super.distance(other);
+    }
+
     protected boolean step() {
 	return (++duration > max_duration);
     }

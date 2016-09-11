@@ -4,7 +4,7 @@ public class Point {
 
     public final double x;
     public final double y;
-    private static final int side_length = 100;
+    private static int side_length = 100;
 
     public Point(double x, double y) {
 	this.x = x;
@@ -23,6 +23,10 @@ public class Point {
 
     public Point move(Point v) {
 	return new Point( (x+v.x+side_length) % side_length, (y+v.y+side_length) % side_length );
+    }
+
+    protected static void set_side_length(int new_side_length) {
+        side_length = new_side_length;
     }
     
 }

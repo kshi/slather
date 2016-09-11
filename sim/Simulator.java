@@ -23,7 +23,7 @@ class Simulator {
     private static Random random = new Random();
 
     // default sizes
-    private static final int side_length = 100; //10cm
+    private static int side_length = 100; //10cm
 
     // speeds
     private static final int move_dist = 1; //1mm
@@ -261,6 +261,11 @@ class Simulator {
 		    if (fps < 0.0)
 			throw new IllegalArgumentException("Invalid FPS (must be non-negative)");
 		    refresh = fps == 0.0 ? -1 : (int) Math.round(1000.0 / fps);
+		} else if (args[a].equals("-s") || args[a].equals("--side")) {
+		    if (++a == args.length)
+			throw new IllegalArgumentException("Missing side length");
+		    side_length = Integer.parseInt(args[a]);
+		    Point.set_side_length(side_length);
 		} else if (args[a].equals("-g") || args[a].equals("--groups")) {
 		    p = args.length - a - 1;
 		    groups = new String[p];

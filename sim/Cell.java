@@ -15,7 +15,7 @@ public class Cell extends GridObject{
     }
 
     public double distance(GridObject other) {
-	return diameter/2 + super.distance(other);
+	return super.distance(other) - diameter/2;
     }
 
     public Cell(Point position, int player) {
@@ -32,7 +32,7 @@ public class Cell extends GridObject{
 
     // called by simulator
     protected void move(Point vector, Set<Pherome> pheromes, Set<Cell> cells) {
-	if (vector.norm() > move_dist + 0.000000001)
+	if (vector.norm() > move_dist + 0.00001)
 	    //return;
 	    throw new IllegalArgumentException("Cell cannot move more than " + move_dist + " per turn.");
 	Point new_position = position.move(vector);

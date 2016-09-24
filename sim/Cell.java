@@ -30,16 +30,21 @@ public class Cell extends GridObject{
 	return diameter;
     }
 
-    // called by simulator
-    protected void move(Point vector, Set<Pherome> pheromes, Set<Cell> cells) {
-	if (vector.norm() > move_dist + 0.00001)
-	    //return;
-	    throw new IllegalArgumentException("Cell cannot move more than " + move_dist + " per turn.");
+    // called by simulator    
+    
+    protected void move(Point vector, Set<Pherome> pheromes, Set<Cell> cells, boolean log) {
+	if (vector.norm() > move_dist + 0.00001) {
+	    if (log)
+		System.err.println("Cell cannot move more than " + move_dist + " per turn.");
+	    return;
+	}	   
 	Point new_position = position.move(vector);
 	Iterator<Pherome> pherome_it = pheromes.iterator();	
 	while (pherome_it.hasNext()) {
 	    Pherome next = pherome_it.next();
 	    if (new_position.distance(next.getPosition()) < 0.5*diameter && player != next.player) {
+		if (log)
+		    System.err.println("Player " + player + " collided with hostile pherome.");
 		return;
 	    }
 	}
@@ -47,6 +52,8 @@ public class Cell extends GridObject{
 	while (cell_it.hasNext()) {
 	    Cell next = cell_it.next();
 	    if (new_position.distance(next.getPosition()) < 0.5*diameter + 0.5*next.getDiameter() + 0.0001) {
+		if (log)
+		    System.err.println("Player " + player + " collided with another cell.");
 		return;
 	    }
 	}
@@ -75,8 +82,20 @@ public class Cell extends GridObject{
     protected void halve() {
 	diameter = diameter / 2;
     }
-    protected Pherome secrete(int max_duration) {
-	return new Pherome(position, player, max_duration);
+    protected Pherome secrete(Set<Pherome> nearby_pheromes, int max_duration) {
+	Iterator<Pherome> it = nearby_pheromes.iterator();
+	boolean has_overlapping_pherome = false;
+	while (it.hasNext()) {
+	    Pherome next = it.next();
+	    if (distance(next) <= 0) {
+		next.refresh();
+		has_overlapping_pherome = true;
+	    }
+	}
+	if (has_overlapping_pherome)
+	    return null;
+	else
+	    return new Pherome(position, player, max_duration);
     }
 
 }

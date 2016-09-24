@@ -1,0 +1,53 @@
+g2
+go in opposite direction of the average direction of all other cells
+
+
+g6
+go in opposite direction of the two closest cells
+
+Michael: if the view radius is too large, the avoidance behavior might be overreacting too much in avoiding neighbors
+
+Jingyu: farther away cells are more uniformly distributed and their average vector cancels out
+
+
+g4
+divide surrounding area into quadrants, go towards least populated quadrant
+
+
+g8
+cells move in a circle/square to defend territory. upon reproducing, the new cell is sent farther out before it begins circling
+circling is not ideal at the beginning of the game because it restricts your territory unnecessarily
+
+Xi: at the end of the game the crowded space prevents moving in a circle
+
+Michael: circles are hard to implement because of potential inteference preventing the circle from being completed. But theoretically it's a good idea
+
+Stephanie: clustering is a sign of success in using space efficiently at the beginning
+
+
+g1
+move in the opposite direction of nearby cells, but is not using pheromes.
+
+
+g3
+aggressive player that travels in S shapes towards other players.
+aggressive strategies do not seem to work well, at least initially
+
+
+g9
+choose angle with most open space
+
+
+g5
+vector sum of nearby cells but went towards instead of away
+
+
+d=7,t=1
+aggressive strategies seem to be doing better
+
+Rojan: clustering is better for larger n
+
+
+for arbitrary choices (such as quadrant), you should provide theoretical or experimental justification as to why that particular parameter was chosen
+
+player needs to internally handle different d,t parameters. can have different strategies, just need to all be unified into one player

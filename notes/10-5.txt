@@ -1,0 +1,13 @@
+Michael: move in circles initially, once a loop is completed move inwards so that only the radius touches the pherome circle to refresh pheromes. Apparently doesn't work after cell reproduces
+
+Jingyu: don't need the byte for the angle strategy, can save it for other information
+
+David: honeycomb behavior for large d parameter
+
+some discussion on changing the distance function. using distance from center versus distance from edges to implicitly take into account cell size. use tangent vectors of neighboring cells to trace out cones
+
+Michael: prioritize giving free space to big cells close to reproducing
+
+g5: using tangents to cells takes into account diameter of cell. otherwise cells are treated as pheromes, and just using the center may still lead to a collision
+
+each group come up with parameters / reasons for those parametersxs

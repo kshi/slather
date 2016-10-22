@@ -1,0 +1,32 @@
+g3: treat large clump of cells as as single cell for the purposes of creating an average vector direction to move away from
+
+g1: form circles based on length of t, spin around and refresh circles of pheromes
+
+Julian: have trail of pheromes communicate to other cells of the same species
+
+do not need to move 1mm with each step
+
+
+g3,g5: use byte to store angle of movement. move away from cells
+
+Julian: use byte to store side length of movement squares
+Yishwan: store a countdown timer
+
+Michael: take into account growth capability when moving
+
+David: weight smaller cells less in vector-based movement straegies
+also move away from friendly cells that are close to reproducing
+
+Michael: direction of movement does not matter much, only number of cells and number of pheromes left behind to block other cells
+
+Lou: pherome trails are parallel if cells share direction of movement. this gives opponent cells a free region in between to move
+
+Yuan: remembering angle last moved in is important so that cells move quickly at the beginning
+
+Martina: can mix straight lines with the circle strategy
+
+Rajiv: straight line is good initially to spread out quickly, but not necessarily later on when space is more congested
+
+Bruce: spreading out isn't necessarily the bes., as long as one can grow at the optimal rate pheromes can be used to carve out territory. spreading out only achieves optimal growth without considering territory
+
+

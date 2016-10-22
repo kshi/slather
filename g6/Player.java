@@ -1,191 +1,68 @@
 package slather.g6;
 
-/*<<<<<<< HEAD
-import java.util.Iterator;
-import java.util.Random;
-import java.util.Set;
-
-import slather.sim.Cell;
-import slather.sim.Move;
-import slather.sim.Pherome;
-import slather.sim.Point;
-
-public class Player implements slather.sim.Player {
-
-	Random gen = new Random();
-
-	@Override
-	public void init(double d, int t) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
-	public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		if (player_cell.getDiameter() >= 2) // reproduce whenever possible
-			return new Move(true, (byte) -1, (byte) -1);
-		if (memory > 0) { // follow previous direction unless it would cause a
-							// collision
-			Point vector = extractVectorFromAngle((int) memory);
-			// check for collisions
-			if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-				return new Move(vector, memory);
-		}
-		// if all tries fail, find best path and go
-		return findBestPath(player_cell, memory, nearby_cells, nearby_pheromes);
-	}
-
-	public Move findBestPath(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		if (memory > 0) {
-			// there was a collision. find the best path to go
-			for (int i = memory + 90; i < 360; i++) {
-				// int arg = gen.nextInt(180) + 1;
-				Point vector = extractVectorFromAngle(i);
-				if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-					return new Move(vector, (byte) i);
-			}
-			for (int i = memory + 90; i > 0; i--) {
-				// int arg = gen.nextInt(180) + 1;
-				Point vector = extractVectorFromAngle(i);
-				if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-					return new Move(vector, (byte) i);
-			}
-		} else {
-			// there was no memory before. find the best path to go
-			for (int i = 0; i < 360; i++) {
-				int arg = gen.nextInt(180) + 1;
-				Point vector = extractVectorFromAngle(arg);
-				if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-					return new Move(vector, (byte) arg);
-			}
-		}
-
-		// if all tries fails, find the farthest pherome position and go
-		Point farthestPheromePoint = player_cell.getPosition();
-		for (Pherome p : nearby_pheromes) {
-			if (!collides(player_cell, p.getPosition(), nearby_cells, nearby_pheromes)) {
-				if (player_cell.getPosition().distance(p.getPosition()) > player_cell.getPosition()
-						.distance(farthestPheromePoint)) {
-					farthestPheromePoint = p.getPosition();
-				}
-			}
-		}
-		return new Move(farthestPheromePoint, (byte) 0);
-	}
-
-=======*/
 import slather.sim.Cell;
 import slather.sim.Point;
 import slather.sim.Move;
 import slather.sim.Pherome;
+import slather.sim.GridObject;
 import java.util.*;
 
 public class Player implements slather.sim.Player {
 
 	private Random gen;
-	private double d;
 	private int t;
+	private double d;
+	private static int cell_vision = 2;
 
-	public void init(double d, int t) {
+	@Override
+	public void init(double d, int t, int side_length) {
 		gen = new Random();
-		this.d = d;
 		this.t = t;
+		this.d = d;
 	}
 
+	@Override
 	public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		if (player_cell.getDiameter() >= 2) // reproduce whenever possible
-			return new Move(true, (byte) -1, (byte) -1);
-		// if (memory > 0) { // follow previous direction unless it would cause a
-		// 					// collision
-		// 	Point vector = extractVectorFromAngle((int) memory);
-		// 	// check for collisions
-		// 	if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-		// 		return new Move(vector, memory);
-		// }
-
-		/*
-		 * go in opposite direction of opposing cells, doesn't currently use the
-		 * memory
-		 */
-		Set<Cell> friendly_cells = new HashSet<Cell>();
-		Set<Cell> enemy_cells = new HashSet<Cell>();
-		Set<Cell> two_closest_enemies = new HashSet<Cell>();
-		if (!nearby_cells.isEmpty()) {
-
-			// sort points into friendly and enemy cell positions
-			for (Cell currCell : nearby_cells) {
-				/*if (currCell.player == 6) {
-					System.out.println(currCell.player+","+player_cell.player);
-					friendly_cells.add(currCell);
-				} else {*/
-					enemy_cells.add(currCell);
-				//}
+		// reproduce whenever possible
+		if (player_cell.getDiameter() >= 2) {
+			return new Move(true, (byte) 0, (byte) 0);
+		}
+		Set<GridObject> neighbors = findNeighbors(player_cell, nearby_cells, nearby_pheromes);
+		if (neighbors.size()==0) {
+			// follow previous path
+			Point vector = extractVectorFromAngle((int) memory);
+			if (Double.isNaN(vector.x) || Double.isNaN(vector.y)) {
 			}
-
-			/*
-			 * use the closest 2 enemy cells to determine your direction of
-			 * movement. use 1 enemy cell if there is only one enemy in your
-			 * vicinity
-			 */
-			Point vector;
-			ArrayList<Cell> sortedCells = this.sort(enemy_cells, player_cell);
-			if(!sortedCells.isEmpty()) {
-				if (sortedCells.size() >= 2) {
-					Cell cellOne = sortedCells.get(0);
-					Cell cellTwo = sortedCells.get(1);
-					vector = avoidEnemies(player_cell, cellOne, cellTwo);
-				} else { // only 1 enemy cell in vicinity of player_cell
-					Cell cellOne = sortedCells.get(0);
-					vector = avoidEnemies(player_cell, cellOne);
+			if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
+				return new Move(vector, memory);
+		}
+		else if(neighbors.size()==1){
+			Point vector = avoidCell(player_cell, neighbors.iterator().next());
+			if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
+				return new Move(vector, (byte)extractAngleFromVector(vector, player_cell));
+		}
+		else {
+			Point largestAnglePath = findBestPath(player_cell, neighbors);
+			if (!collides(player_cell, largestAnglePath, nearby_cells, nearby_pheromes)) {
+				int angle = extractAngleFromVector(largestAnglePath, player_cell) / 2;
+				if (Double.isNaN(largestAnglePath.x) || Double.isNaN(largestAnglePath.y)) {
 				}
-				if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-					return new Move(vector, memory);
+				return new Move(largestAnglePath, (byte) angle);
 			}
 		}
-
-		// if no previous direction specified or if there was a collision, try
-		// random directions to go in until one doesn't collide
+		// Generate a random new direction to travel
 		for (int i = 0; i < 4; i++) {
+			gen = new Random();
 			int arg = gen.nextInt(180) + 1;
 			Point vector = extractVectorFromAngle(arg);
 			if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
 				return new Move(vector, (byte) arg);
 		}
-
 		// if all tries fail, just chill in place
 		return new Move(new Point(0, 0), (byte) 0);
 	}
-
-	/* sort cells from smallest distance from player_cell to greatest */
-	private ArrayList<Cell> sort(Set<Cell> cells, Cell player_cell) {
-		ArrayList<Cell> orderedCells = new ArrayList<Cell>();
-		Map<Double, Cell> dict = new HashMap<Double, Cell>();
-		List<Double> dist_list = new ArrayList<Double>();
-
-		for (Cell cell : cells) {
-			double dist = player_cell.distance(cell);
-			dict.put(dist, cell);
-		}
-
-		Set<Double> keys = dict.keySet();
-		for(double key : keys) {
-			dist_list.add(key);
-		}
-		
-		Collections.sort(dist_list);
-
-		// for debugging
-		// System.out.println(keys.toString());
-
-		for (double key : dist_list) {
-			orderedCells.add(dict.get(key));
-		}
-
-		return orderedCells;
-	}
-
-	private Point avoidEnemies(Cell pl_cell, Cell one) {
-		int enemy_dir = extractAngleFromVector(one.getPosition(), pl_cell);
+	private Point avoidCell(Cell pl_cell, GridObject gridObject) {
+		int enemy_dir = extractAngleFromVector(gridObject.getPosition(), pl_cell);
 		enemy_dir *= 2; // back to 360 degrees for easier mental arithmetic
 		int my_cell_dir = (enemy_dir + 180) % 360; // opposite direction of
 													// enemy
@@ -193,21 +70,123 @@ public class Player implements slather.sim.Player {
 		return this.extractVectorFromAngle(my_cell_dir);
 	}
 
-	/*
-	 * invert (x, y) coordinate values for one and two. ex: (-1, 5) -> (1, -5)
-	 * then add the angles of cells one and two to determine desired direction
-	 */
-	private Point avoidEnemies(Cell pl_cell, Cell one, Cell two) {
-		double x_one = one.getPosition().x;
-		double y_one = one.getPosition().y;
-		double x_two = two.getPosition().x;
-		double y_two = two.getPosition().y;
-		Point invertedOne = new Point(-x_one, -y_one);
-		Point invertedTwo = new Point(-x_two, -y_two);
-		int angle_one = this.extractAngleFromVector(invertedOne, pl_cell);
-		int angle_two = this.extractAngleFromVector(invertedTwo, pl_cell);
-		int desired_angle = (angle_one + angle_two) / 2;
-		return this.extractVectorFromAngle(desired_angle);
+	private Set<GridObject> findNeighbors(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+		Set<GridObject> neighbors = new HashSet<GridObject>();
+		Set<GridObject> neighbors_samespecies = new HashSet<GridObject>();
+		Set<GridObject> neighbors_enemies = new HashSet<GridObject>();
+
+		for (Cell cell : nearby_cells) {
+			if (player_cell.distance(cell) <= cell_vision) {
+				if (cell.player == player_cell.player) {
+					neighbors_samespecies.add(cell);
+				} else {
+					neighbors_enemies.add(cell);
+				}
+				neighbors.add(cell);
+			}
+		}
+		for (Pherome pherome : nearby_pheromes) {
+			if (player_cell.distance(pherome) <= cell_vision && pherome.player != player_cell.player) {
+				neighbors.add(pherome);
+			}
+		}
+		if (neighbors_samespecies.size() > neighbors_enemies.size()) {
+			return neighbors_samespecies;
+		}
+		return neighbors;
+	}
+
+	private Set<Cell> findCellWithinVision(Set<Cell> nearby_cells, Cell player_cell) {
+		Set<Cell> cells = new HashSet<>();
+		for (Cell cell : nearby_cells) {
+			if (player_cell.distance(cell) <= cell_vision) {
+				cells.add(cell);
+			}
+		}
+		return cells;
+	}
+
+	private Set<Pherome> findPheromeWithinVision(Set<Pherome> nearby_pheromes, Cell player_cell) {
+		Set<Pherome> pheormes = new HashSet<>();
+		for (Pherome p : nearby_pheromes) {
+			if (player_cell.distance(p) <= cell_vision) {
+				pheormes.add(p);
+			}
+		}
+		return pheormes;
+	}
+
+	private Point findBestPath(Cell player_cell, Set<GridObject> nearbyObj) {
+		List<Point> neighbors = new ArrayList<Point>();
+		double largest = 0;
+		int index = -1;
+		for (GridObject cell : nearbyObj) {
+			Point position = getNearbyPosition(player_cell.getPosition(), cell.getPosition());
+			neighbors.add(position);
+		}
+		neighbors.sort(new PointsComparator());
+		if (neighbors.size() > 1) {
+			for (int i = 1; i < neighbors.size(); ++i) {
+				double angle1 = Math.atan2(neighbors.get(i).y, neighbors.get(i).x);
+				double angle2 = Math.atan2(neighbors.get(i - 1).y, neighbors.get(i - 1).x);
+				if (angle1 - angle2 > largest) {
+					largest = angle1 - angle2;
+					index = i;
+				}
+			}
+			double angle1 = Math.atan2(neighbors.get(0).y, neighbors.get(0).x);
+			double angle2 = Math.atan2(neighbors.get(neighbors.size() - 1).y, neighbors.get(neighbors.size() - 1).x);
+			if (largest < angle1 + 2 * Math.PI - angle2) {
+				largest = angle1 + 2 * Math.PI - angle2;
+				index = 0;
+			}
+			if (index < 1)
+				index = neighbors.size() - 1;
+			else
+				index = index - 1;
+			Point p = neighbors.get(index);
+			double x, y;
+			x = p.x * Math.cos(largest / 2) - p.y * Math.sin(largest / 2);
+			y = p.y * Math.cos(largest / 2) + p.x * Math.sin(largest / 2);
+			return new Point(x, y);
+		} else if (neighbors.size() == 1) {
+			return new Point(-neighbors.get(0).x, -neighbors.get(0).y);
+		}
+		return new Point(0, 0);
+	}
+
+	private Point getNearbyPosition(Point one, Point two) {
+		double x = two.x;
+		double y = two.y;
+		double dis = 100;
+		Point p = null;
+		for (int x_coordinate = -1; x_coordinate <= 1; x_coordinate++) {
+			for (int y_coordinate = -1; y_coordinate <= 1; y_coordinate++) {
+				x = two.x + x_coordinate * 100;
+				y = two.y + y_coordinate * 100;
+				double d = getDistanceOfTwoPoints(one, new Point(x, y));
+
+				if (dis > d) {
+					dis = d;
+					p = new Point(x - one.x, y - one.y);
+				}
+			}
+		}
+
+		double X = p.x, Y = p.y;
+		double L = Math.hypot(X, Y);
+		if (L == 0.0) {
+			return new Point(0, 0);
+		}
+		X /= L;
+		Y /= L;
+		return new Point(X, Y);
+	}
+
+	private double getDistanceOfTwoPoints(Point one, Point second) {
+		double dist_square = (one.x - second.x) * (one.x - second.x) + (one.y - second.y) * (one.y - second.y);
+		double dist = Math.sqrt(dist_square);
+		return dist;
 	}
 
 	// check if moving player_cell by vector collides with any nearby cell or
@@ -231,19 +210,6 @@ public class Player implements slather.sim.Player {
 		return false;
 	}
 
-	public Point extractVectorFromAngle(int angel) {
-		double theta = Math.toRadians(2 * angel);
-		double dx = Cell.move_dist * Math.cos(theta);
-		double dy = Cell.move_dist * Math.sin(theta);
-		return new Point(dx, dy);
-	}
-
-	/*
-	 * compute the angle from Point arg. should be out of 180 since it deals in
-	 * angles in 2-deg increments. referenced
-	 * http://www.davdata.nl/math/vectdirection.html for extrapolating angles
-	 * from vectors.
-	 */
 	private int extractAngleFromVector(Point arg, Cell player_cell) {
 		double x = player_cell.getPosition().x;
 		double y = player_cell.getPosition().y;
@@ -266,4 +232,11 @@ public class Player implements slather.sim.Player {
 		return (int) (Math.toDegrees(angle) / 2);
 	}
 
+	// convert an angle (in 2-deg increments) to a vector with magnitude
+	private Point extractVectorFromAngle(int arg) {
+		double theta = Math.toRadians(2 * (double) arg);
+		double dx = Cell.move_dist * Math.cos(theta);
+		double dy = Cell.move_dist * Math.sin(theta);
+		return new Point(dx, dy);
+	}
 }

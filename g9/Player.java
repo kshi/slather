@@ -1,96 +1,225 @@
 package slather.g9;
 
 import slather.sim.Cell;
+import slather.sim.GridObject;
 import slather.sim.Point;
 import slather.sim.Move;
 import slather.sim.Pherome;
 import java.util.*;
 
+// find largest free angle by sort, escape from self cells and pheromes
 
 public class Player implements slather.sim.Player {
 
 	private Random gen;
 
-	//=========parameters==================================
-	private static double EARLY_STAGE = 1. / 2.;
-	private static double LATE_STAGE = 4. / 5.;
-	private static double COMF_RANGE = 1;
+    private static int EXPLORER = 0;
+    private static int DEFENDER = 1;
+    private static int ANGLE_INCREMENTS = 3;
+    private static double SCALE_THRESHOLD = 0.2;
+    
+    private static int EXPAND = 0;
+    private static int DEFENSE = 1;
+    private static int EARLY = 5;
+	private static int ROT = 6;
 
-	//==========functions==================================
-	public void init(double d, int t) {
+	private static double ratio = 0.8;
+	private static double sight = 4;
+    private static int mode = DEFENSE;
+    
+    class ScoredObject implements Comparable<ScoredObject> {
+        public GridObject object;
+        public int angle;
+
+        public ScoredObject(GridObject object, int angle) {
+            this.object = object;
+            this.angle = angle;
+        }
+
+        public int compareTo(ScoredObject o) {
+            return this.angle - o.angle;
+        }
+    }
+
+	public void init(double d, int t, int side_length) {
 		gen = new Random();
 	}
+    
+    private int getMoveMode(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        int s = 0;
+        for (Cell cell : nearby_cells) {
+            if (player_cell.getPosition().distance(cell.getPosition()) < sight) {
+                ++s;
+            }
+        }
+        if (s < EARLY) return EXPAND; else return DEFENSE;
+    }
 
-	public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		if (player_cell.getDiameter() >= 2 /*&& (calCrowdInDirection(player_cell, (int)memory, nearby_cells, nearby_pheromes) > COMF_RANGE)*/) // reproduce when it is not very crowd
-			return new Move(true, (byte)-1, (byte)-1);
+	private ArrayList<GridObject> getNearbyObstaclesEscapeSelf(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+		ArrayList<GridObject> nearby_obstacles = new ArrayList<GridObject>();
+		ArrayList<GridObject> nearby_same = new ArrayList<GridObject>();        
+		ArrayList<GridObject> nearby_different = new ArrayList<GridObject>();
 
-		if (memory > 0) { // follow previous direction in early stage, try least crowd direction in later
-			if (calCrowdSurround(player_cell, nearby_cells, nearby_pheromes) < EARLY_STAGE) {
-				Point vector = extractVectorFromAngle( (int)memory);
-				// check for collisions
-				if (!collides( player_cell, vector, nearby_cells, nearby_pheromes))
-					return new Move(vector, memory);
-			}
+		for (Cell cell : nearby_cells) {
+			if (player_cell.getPosition().distance(cell.getPosition()) < sight){
+                if(cell.player == player_cell.player){
+                    nearby_same.add(cell);
+                }else{
+                    nearby_different.add(cell);
+                }
+                nearby_obstacles.add(cell);
+            } 
+        }
+
+		int cnt = 0;
+		for (Pherome pherome : nearby_pheromes) {
+			if (player_cell.getPosition().distance(pherome.getPosition()) < sight  && pherome.player != player_cell.player) {
+                nearby_obstacles.add(pherome);
+				++cnt;
+            }
 		}
 
-		// otherwise, try random directions to go in until one doesn't collide
-		double max_range = 0;
-		int direction = 0;
-		Point vector = new Point(0, 0);
-		for (int arg = 1; arg <= 180; arg += 10) {
-			Point current_vector = extractVectorFromAngle(arg);
-			if (collides(player_cell, current_vector, nearby_cells, nearby_pheromes)) continue;
-			double current_range = calCrowdInDirection(player_cell, arg, nearby_cells, nearby_pheromes);
-			if (current_range > max_range) {
-				max_range = current_range;
-				direction = arg;
-				vector = current_vector;
-			} else
-			if (current_range == max_range) {
-				int tmp = gen.nextInt(10);
-				if (tmp < 1) {
-					direction = arg;
-					vector = current_vector;
+        if(cnt > 0 && nearby_same.size() * ratio > nearby_different.size()){
+            return nearby_same;
+        }
+
+		return nearby_obstacles;
+	}
+
+    private Move getDefaultMove(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+		/*
+		if (player_cell.getDiameter() < 1.2) {
+			int coin = gen.nextInt(2);
+			if (coin == 0) return new Move(new Point(0, 0), (byte)0);
+		}
+		*/
+
+        // if no previous direction specified or if there was a collision, try random directions to go in until one doesn't collide
+        for (double scale = 1.0; scale > 0; scale -= 0.3) {
+			for (int angle = ROT; angle <= 360 / ANGLE_INCREMENTS; angle += 1) {
+				Point vector = extractVectorFromAngle(angle, scale);
+				if (!collides(player_cell, vector, nearby_cells, nearby_pheromes)) {
+					return new Move(vector, (byte)(angle));
 				}
 			}
 		}
-		if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-			return new Move(vector, (byte) direction);
 
-		// if all tries fail, just chill in place
-		return new Move(new Point(0,0), (byte)0);
-	}
+        // if all tries fail, just chill in place
+        return new Move(new Point(0,0), (byte)0);
+    }
 
-	double calCrowdSurround(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		int cnt = 0;
-		for (int arg = 1; arg <= 180; arg += 5) {
-			Point current_vector = extractVectorFromAngle(arg);
-			if (collides(player_cell, current_vector, nearby_cells, nearby_pheromes))
-				++cnt;
+    private int getAngleFrom(Cell player_cell, GridObject obstacle) {
+        Point src = player_cell.getPosition();
+        Point dest = obstacle.getPosition();
+
+        double angle = Math.toDegrees(Math.atan2(dest.y - src.y, dest.x - src.x));
+        if (angle < 0.0) {
+            angle += 360.0;
+        }
+
+        return (int) (angle / ANGLE_INCREMENTS);
+    }
+
+    private int getLargestFreeAngle(Cell player_cell, ArrayList<GridObject> nearby_obstacles) {
+        ArrayList<ScoredObject> scored_obstacles = new ArrayList<ScoredObject>();
+
+        for (GridObject obstacle : nearby_obstacles) {
+            ScoredObject scored_obstacle = new ScoredObject(obstacle, getAngleFrom(player_cell, obstacle));
+            scored_obstacles.add(scored_obstacle);
+        }
+
+        Collections.sort(scored_obstacles);
+        int largest_free_angle = 0;
+        int ending_angle = -1;
+        int target_angle = -1;
+
+        for (int i = 1; i < scored_obstacles.size(); i++) {
+            int free_angle = scored_obstacles.get(i).angle - scored_obstacles.get(i-1).angle;
+            if (free_angle > largest_free_angle) {
+                largest_free_angle = free_angle;
+                ending_angle = scored_obstacles.get(i).angle;
+                target_angle = ending_angle - (largest_free_angle / 2);
+            }
+        }
+
+        // Account for the wraparound effect
+        int first_angle = scored_obstacles.get(0).angle;
+        int last_angle = scored_obstacles.get(scored_obstacles.size() - 1).angle;
+        int wraparound_free_angle = first_angle + (360 / ANGLE_INCREMENTS) - last_angle;
+        if (wraparound_free_angle > largest_free_angle) {
+            largest_free_angle = wraparound_free_angle;
+            ending_angle = first_angle;
+            target_angle = ending_angle - (largest_free_angle / 2);
+
+            if (target_angle < 0) {
+                target_angle += 360 / ANGLE_INCREMENTS;
+            }
+        }
+
+        return target_angle;
+    }
+
+    private Move getExplorerMove(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        ArrayList<GridObject> nearby_obstacles = getNearbyObstaclesEscapeSelf(player_cell, nearby_cells, nearby_pheromes);
+        if (nearby_obstacles.size() > 0) {
+            // Move in the direction of the largest free angle
+            if (nearby_obstacles.size() == 1) {
+                int angle = getAngleFrom(player_cell, nearby_obstacles.get(0));
+                int target_angle = angle + (180 / ANGLE_INCREMENTS);
+                if (target_angle > (360 / ANGLE_INCREMENTS)) {
+                    target_angle -= 360 / ANGLE_INCREMENTS;
+                }
+
+                for (double scale = 1.0; scale > SCALE_THRESHOLD; scale -= 0.1) {
+                    Point vector = extractVectorFromAngle(target_angle, scale);
+                    if (!collides(player_cell, vector, nearby_cells, nearby_pheromes)) {
+                        return new Move(vector, (byte)target_angle);
+                    }
+                }
+            } else {
+                int target_angle = getLargestFreeAngle(player_cell, nearby_obstacles);
+                for (double scale = 1.0; scale > SCALE_THRESHOLD; scale -= 0.1) {
+                    Point vector = extractVectorFromAngle(target_angle, scale);
+                    if (!collides(player_cell, vector, nearby_cells, nearby_pheromes)) {
+                        return new Move(vector, (byte)(target_angle));
+					}
+				}
+			}
+		} else {
+			for (double scale = 1.0; scale > SCALE_THRESHOLD; scale -= 0.1) {
+                for (int delta = ROT; delta < 360 / ANGLE_INCREMENTS; ++delta) {
+					int ang = ((memory + delta - 1) % (360 / ANGLE_INCREMENTS)) + 1;
+                    Point dir = extractVectorFromAngle(ang, scale);
+                    if (!collides(player_cell, dir, nearby_cells, nearby_pheromes)) {
+                        return new Move(dir, (byte)ang);
+                    }
+                }
+			}
+        }
+		
+        return getDefaultMove(player_cell, nearby_cells, nearby_pheromes);
+    }
+
+    public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+		if (player_cell.getDiameter() >= 2) {
+			int res = 0;
+			boolean flag = false;
+			for (double scale = 1.0; scale > SCALE_THRESHOLD; scale -= 0.1) {
+				for (int delta = ROT; delta < 360 / ANGLE_INCREMENTS; ++delta) {
+					Point dir = extractVectorFromAngle(((memory + delta - 1) % (360 / ANGLE_INCREMENTS)) + 1, scale);
+					if (!collides(player_cell, dir, nearby_cells, nearby_pheromes)) {
+						res = ((memory + delta - 1) % (360 / ANGLE_INCREMENTS)) + 1;
+						flag = true;
+						break;
+					}
+				}
+				if (flag) break;
+			}
+			return new Move(true, (byte)res, (byte)res);
 		}
-		return (double)cnt / 36.;
-	}
 
-	double calCrowdInDirection(Cell player_cell, int arg, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		if (arg > 0) {
-			Point vector = extractVectorFromAngle(arg);
-			if (collides(player_cell, vector, nearby_cells, nearby_pheromes)) return 0;
-
-			Point destination = player_cell.getPosition().move(vector);
-			if (calCrowdSurround(player_cell, nearby_cells, nearby_pheromes) > LATE_STAGE) return 1;
-		}
-
-		for (int delta = 1; arg - delta > 0 && arg + delta <= 180 && delta < 30; ++delta) {
-			Point vector1 = extractVectorFromAngle(arg - delta);
-			Point vector2 = extractVectorFromAngle(arg + delta);
-			if (!collides(player_cell, vector1, nearby_cells, nearby_pheromes) &&
-			    !collides(player_cell, vector2, nearby_cells, nearby_pheromes))
-				continue;
-			return delta;
-		}
-		return 90;
-	}
+        return getExplorerMove(player_cell, memory, nearby_cells, nearby_pheromes);
+    }
 
 	// check if moving player_cell by vector collides with any nearby cell or hostile pherome
 	private boolean collides(Cell player_cell, Point vector, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
@@ -110,11 +239,11 @@ public class Player implements slather.sim.Player {
 		return false;
 	}
 
-	// convert an angle (in 2-deg increments) to a vector with magnitude Cell.move_dist (max allowed movement distance)
-	private Point extractVectorFromAngle(int arg) {
-		double theta = Math.toRadians( 2* (double)arg );
-		double dx = Cell.move_dist * Math.cos(theta);
-		double dy = Cell.move_dist * Math.sin(theta);
+	// convert an angle (in ANGLE_INCREMENTS increments) to a vector with magnitude Cell.move_dist (max allowed movement distance)
+	private Point extractVectorFromAngle(int arg, double scale) {
+		double theta = Math.toRadians(ANGLE_INCREMENTS * (double)arg);
+		double dx = Cell.move_dist * Math.cos(theta) * scale;
+		double dy = Cell.move_dist * Math.sin(theta) * scale;
 		return new Point(dx, dy);
 	}
 

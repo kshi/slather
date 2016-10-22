@@ -12,228 +12,793 @@ public class Player implements slather.sim.Player {
     private Random gen;
     private double d;
     private int t;
+    private int sideLength;
 
-    private static final int NUMDIRECTIONS = 4;   // CONSTANTS - number of directions
-    private static final int DURATION_CAP = 4;   // CONSTANTS - cap on traveling
-    private static final int FRIENDLY_AVOID_DIST = 5; // CONSTANTS - for random walker: turn away from friendlies that are in this radius
-    
-    public void init(double d, int t) {
-	gen = new Random();
-	this.d = d;
-	this.t = t;
+    // constants to label strategies
+    private static final int CLUSTER = 0;
+    private static final int SYNC = 1;
+    private static final int BORDER = 2;
+    private static final int TCELL = 3;
+
+    private static int AVOID_DIST = 2;
+    private static int FRIENDLY_AVOID_DIST = 4;
+    private static double NEXT_REDUCE_MOVE = 0.8;
+    private static int MAX_TRIES = 20;
+    private static int PH_AVOID_DIST = 2;
+
+    // constants for sync strategy (non final ones are determined by d, t)
+    private static int SYNC_MAX_DIR_COUNT = 16; // determined by t
+    private static final int SYNC_LOOK_ARC = 240; // constrained arc to look for the next move
+    private static int SYNC_SIGHT_THRESHOLD = 5; // don't care about cells further than this when calculating widest angle for move
+    private static final double SYNC_DIAMETER_TRIGGER = 1.5; // size to consider evolving behavior
+    private static int SYNC_ENEMY_COUNT_TRIGGER = 4; // if see this many enemies, evolve behavior
+    private static int SYNC_INSIDE_CROWDED_THRESHOLD = 3; // if see this many friendlies situated on only 1 side of you, evolve out of sync
+    private static int SYNC_CROWDED_THRESHOLD = 5; // if see this many friendlies anywhere, evolve out of sync
+    private static final int SYNC_INSIDE_SIGHT_THRESHOLD = 8;
+    // constants for border strategy
+    private static final int BORD_SIGHT_THRESHOLD = 5;
+    private static final int BORD_MAX_BACKOFF_TRIES = 5;
+
+
+    public void init(double d, int t, int sideLength) {
+        gen = new Random();
+        this.d = d;
+        this.t = t;
+        this.sideLength = sideLength;
+
+        // initialize constants for sync strategy based on d, t
+        SYNC_ENEMY_COUNT_TRIGGER = Math.max(1 + (int) d, 6);
+        SYNC_MAX_DIR_COUNT = Math.max(t, 8);
+        SYNC_MAX_DIR_COUNT = Math.min(SYNC_MAX_DIR_COUNT, 64);
+        SYNC_INSIDE_CROWDED_THRESHOLD = Math.max(2 + (int) d, 10);
+        SYNC_CROWDED_THRESHOLD = (int) (SYNC_INSIDE_CROWDED_THRESHOLD * 1.4);
+        SYNC_SIGHT_THRESHOLD = (int) Math.sqrt(SYNC_MAX_DIR_COUNT);
     }
 
     /*
       Memory byte setup:
-      1 bit strategy (currently either square walker or random walker)
-
-      Memory byte for square walker:
-      1 bit strategy
-      3 bits empty for now
-      2 bits duration
-      2 bits direction
-      
-      Memory byte for random walker:
-      1 bit strategy
-      7 bits previous direction
-
-      Directions:
-      0 = North
-      1 = East
-      2 = South
-      3 = West
+      2 bits strategy
+      6 bits for strategy's use
      */
-    public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+     public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+         Point currentPosition  = player_cell.getPosition();
+         int strategy = getStrategy(memory);
+         Move nextMove = null;
+         String s = String.format("%8s", Integer.toBinaryString(memory & 0xFF)).replace(' ','0');
+         //System.out.println("Memory byte: " + s);
 
-        Point currentPosition  = player_cell.getPosition();
-        int direction = getDirection(memory);
-        int duration = getDuration(memory);
-        int maxDuration = getMaxDuration(t, NUMDIRECTIONS);
-        int strategy = getStrategy(memory);
-
-	if (player_cell.getDiameter() >= 2) // reproduce whenever possible
-	    return new Move(true, (byte) 0b10000000, (byte) 0);
-        
         if (strategy == 0) {
-            /* Square walker strategy
-             */
-            duration++;
-            if (duration == maxDuration) {
-                direction++;
-                direction = direction % NUMDIRECTIONS;
-                memory = writeDirection(direction, memory);
-            }
-            memory = writeDuration(duration, memory, maxDuration);
-
-            Point destination = getNewDest(direction);
-
-            /*
-            String s = String.format("%8s", Integer.toBinaryString(memory & 0xFF)).replace(' ','0');
-            String p = String.format("current x is %f and current y is %f", currentPosition.x, currentPosition.y);
-            String des = String.format("dest x is %f and dest y is %f", destination.x, destination.y);
-            System.out.println(s);
-            System.out.println(p);
-            System.out.println(des);
-            */
-            
-            // if collides, try 20 different random directions
-            if (collides(player_cell, destination, nearby_cells, nearby_pheromes)) {
-                for (int i = 0; i < 20; i++) {
-                    int arg = gen.nextInt(120);
-                    Point vector = extractVectorFromAngle(arg);
-                    if (!collides(player_cell, vector, nearby_cells, nearby_pheromes))
-                        return new Move(vector, memory);
-                }
-                // if nothing worked, sit in place
-                return new Move(new Point(0,0), memory);
-            }
-            
-            return new Move(destination, memory);
+            //System.out.println("cluster");
+            nextMove = cluster(player_cell, memory, nearby_cells, nearby_pheromes);
+        } else if (strategy == 1) {
+            //System.out.println("sync");
+            nextMove = sync(player_cell, memory, nearby_cells, nearby_pheromes);
+        } else if (strategy == 2) {
+            //System.out.println("border");
+            nextMove = scout(player_cell, memory, nearby_cells, nearby_pheromes);
+        } else if (strategy == 3) {
+            //System.out.println("tcell");
+            nextMove = tcell(player_cell, memory, nearby_cells, nearby_pheromes);
         } else {
-            /* Random walker strategy:
-               Move away from friendly cells that are too close (specified by FRENDLY_AVOID_DIST)
-               If no closeby friendly cells to avoid, act like default player (move in straight lines)
-             */
-            int prevAngle = memory & 0b01111111;
-
-            Iterator<Cell> cell_it = nearby_cells.iterator();
-            double sumX = 0;
-            double sumY = 0;
-            int count = 0;
-            Point vector;
-
-            // calculate avg position of nearby friendly cells
-            while (cell_it.hasNext()) {
-                Cell curr = cell_it.next();
-                if (curr.player != player_cell.player)
-                    continue;
-                if (player_cell.distance(curr) > FRIENDLY_AVOID_DIST) // don't worry about far away friendlies
-                    continue;
-                Point currPos = curr.getPosition();
-                sumX += currPos.x;
-                sumY += currPos.y;
-                count++;
-            }
-
-            if (count == 0) { // case: no friendly cells to move away from
-                // if had a previous direction, keep going in that direction
-                if (prevAngle > 0) {
-                    vector = extractVectorFromAngle( (int)prevAngle);
-                    if (!collides( player_cell, vector, nearby_cells, nearby_pheromes))
-                        return new Move(vector, memory);
-                }
-
-                // if will collide or didn't have a previous direction, pick a random direction
-                prevAngle = gen.nextInt(120);
-                vector = extractVectorFromAngle(prevAngle);
-            } else { // case: friendly cells too close, move in opposite direction
-                double avgX = sumX / ((double) count);
-                double avgY = sumY / ((double) count);
-
-                double towardsAvgX = avgX - currentPosition.x;
-                double towardsAvgY = avgY - currentPosition.y;
-
-                double distanceFromAvg = Math.hypot(towardsAvgX, towardsAvgY);
-            
-                double awayX = (-(towardsAvgX)/distanceFromAvg) * Cell.move_dist;
-                double awayY = (-(towardsAvgY)/distanceFromAvg) * Cell.move_dist;
-
-                // clear the previous vector bits
-                prevAngle = 0;
-                vector = new Point(awayX, awayY);
-            }
-            
-            if (collides(player_cell, vector, nearby_cells, nearby_pheromes)) {
-                int arg = gen.nextInt(120);
-                // try 20 times to avoid collision
-                for (int i = 0; i < 20; i++) {
-                    vector = extractVectorFromAngle(arg);
-                    if (!collides(player_cell, vector, nearby_cells, nearby_pheromes)) {
-                        memory = (byte) (0b10000000 | arg);
-                        return new Move(vector, memory);
-                    }
-
-                }
-                // if still keeps colliding, stay in place
-                return new Move(new Point(0,0), (byte) 0b10000000);
-            }
-
-            // didn't collide, recreate memory with new vector and move
-            memory = (byte) (0b10000000 | prevAngle);
-            return new Move(vector, memory);
+            //System.out.println("null");
+            nextMove = new Move(new Point(0,0), memory);
         }
+
+        return nextMove;
+    }
+
+
+    private Move scout(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        if (player_cell.getDiameter() >= 2) {
+            int randInt = gen.nextInt() % 100;
+            if (randInt < 2) {
+                byte nm = (byte)((memory & 0b00000000) | 0b11000000);
+                return new Move(true, memory, nm);
+            }
+            return new Move(true, memory, memory);
+        }
+
+        int prevAngle = memory & 0b00001111;
+        Point currentPosition = player_cell.getPosition();
+        Move nextMove = null;
+
+        double[] bounds = getWidestAngle(player_cell, nearby_cells, nearby_pheromes);
+
+        if (bounds == null) { // case: no cells
+            // if had a previous direction, keep going in that direction
+            if (prevAngle > 0) {
+                Point vector = extractVectorFromAngle( (int)prevAngle);
+                if (!collides( player_cell, vector, nearby_cells, nearby_pheromes)) {
+                    nextMove = new Move(vector, memory);
+                }
+            }
+
+            // if will collide or didn't have a previous direction, pick a random direction generate move
+            if (nextMove == null) {
+                int newAngle = gen.nextInt(12);
+                Point newVector = extractVectorFromAngle(newAngle);
+                byte angleBits = (byte) (newAngle & 0b00001111);
+                byte newMemory = (byte) (memory & 0b11110000);
+                newMemory = (byte) (newMemory | angleBits);
+                nextMove = new Move(newVector, newMemory);
+            }
+        }
+        else { // case: there are cells
+            // calculate direction to go (aim for the "middle" of the widest angle)
+            double lowerAngle = bounds[0];
+            if (bounds[0] > bounds[1]) {
+                lowerAngle = getNegativeAngle(bounds[0], "d");
+            }
+
+            double destAngle = lowerAngle + (bounds[1] - lowerAngle) / 2;
+
+            double destX = Cell.move_dist * Math.cos(destAngle);
+            double destY = Cell.move_dist * Math.sin(destAngle);
+
+            // replace the previous vector bits with new direction
+            int newAngle = (int) (getPositiveAngle(Math.toDegrees(destAngle), "d") / 30);
+            Point newVector = new Point(destX, destY);
+            byte angleBits = (byte) (newAngle & 0b00001111);
+            byte newMemory = (byte) (memory & 0b11110000);
+            newMemory = (byte) (newMemory | angleBits);
+            nextMove = new Move(newVector, newMemory);
+        }
+
+        // candidate nextMove written, check for collision
+
+        if (collides(player_cell, nextMove.vector, nearby_cells, nearby_pheromes)) {
+            nextMove = null;
+            int arg = gen.nextInt(12);
+            // try 20 times to avoid collision
+            for (int i = 0; i < 20; i++) {
+                Point newVector = extractVectorFromAngle(arg);
+                if (!collides(player_cell, newVector, nearby_cells, nearby_pheromes)) {
+                    byte angleBits = (byte) (arg & 0b00001111);
+                    byte newMemory = (byte) (memory & 0b11110000);
+                    newMemory = (byte) (newMemory | angleBits);
+                    nextMove = new Move(newVector, newMemory);
+                    break;
+                }
+            }
+            if (nextMove == null) { // if still keeps colliding, stay in place
+                nextMove = new Move(new Point(0,0), (byte) memory);
+            }
+        } // end check candidate nextMove collision
+        return nextMove;
+    }
+
+
+    /*
+      Memory:
+      4 bits strategy
+      2 bits count
+      1 bit evolve to sync? (0 for evolve, 1 to never evolve)
+      3 bits generation count
+     */
+    private Move cluster(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        // if can reproduce, do so and increment the generation
+        int genCount = (byte) memory & 0b00000111;
+        int evolveBit = (byte) ((memory >> 3) & 0b00000001);
+        if (genCount == 2 && evolveBit == 0) {
+            byte nextMemory = (byte) 0b01000000;
+            return sync(player_cell, nextMemory, nearby_cells, nearby_pheromes);
+        }
+
+
+        if (player_cell.getDiameter() >= 2) {
+            genCount = (genCount + 1) % 16;
+            byte nextMemory = (byte) (memory & 0b11110000);
+            nextMemory = (byte) (nextMemory | genCount);
+            return new Move(true, nextMemory, nextMemory);
+        }
+
+
+        // begin spreading out
+        double vectx = 0.0;
+        double vecty = 0.0;
+        double vectfx = 0.0;
+        double vectfy = 0.0;
+        for (Cell nc : nearby_cells) {
+
+            // get their positions
+            Point ncp = nc.getPosition();
+            Point pcp = player_cell.getPosition();
+
+            // add some weights, and get distances
+            double weight;
+            double distx = Math.abs(ncp.x - pcp.x);
+            double disty = Math.abs(ncp.y - pcp.y);
+            double distance = player_cell.distance(nc);
+
+            if ((nc.player != player_cell.player) && (distance >= AVOID_DIST)) {
+                continue;
+            }
+            if ((nc.player == player_cell.player) && (distance > 1)) {
+                continue;
+            }
+
+            // use distance and type or set weights
+            if (nc.player == player_cell.player) {
+                weight = -1/(distance-1);
+            } else {
+                if (distance > 1.1)
+                    weight = -0.003;
+                else
+                    weight = 0.1;
+            }
+            vectx = vectx + weight*(ncp.x - pcp.x);
+            vecty = vecty + weight*(ncp.y - pcp.y);
+        }
+        double avg_x = vectx / Math.max(nearby_cells.size(), 1);
+        double avg_y = vecty / Math.max(nearby_cells.size(), 1);
+
+        double hyp = Math.sqrt(Math.pow(avg_x, 2.0) + Math.pow(avg_y, 2.0));
+        if (hyp > Cell.move_dist) {
+            avg_x = avg_x * (Cell.move_dist / hyp);
+            avg_y = avg_y * (Cell.move_dist / hyp);
+        }
+
+        Point nextPoint = new Point(-avg_x, -avg_y);
+
+        // if collides, try reducing the vector MAX_TRIES times
+        int count = 0;
+        while (collides(player_cell, nextPoint, nearby_cells, nearby_pheromes)) {
+            if (count == MAX_TRIES) {
+                nextPoint = new Point(0,0);
+                break;
+            }
+            nextPoint = new Point(nextPoint.x * NEXT_REDUCE_MOVE, nextPoint.y * NEXT_REDUCE_MOVE);
+            count++;
+        }
+
+        return new Move(nextPoint, memory);
+    }
+
+    /* Synchronized circle strategy
+       Memory byte:
+        - 2 bits strategy
+        - 6 bits direction counter
+     */
+    private Move sync(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        Point currPos = player_cell.getPosition();
+        byte nextMemory = memory;
+        Move nextMove = null;
+        int currCount = memory & 0b00111111;
+
+        // reproduce if possible
+        if (player_cell.getDiameter() >= 2) {
+            // increment direction count and reproduce
+            currCount = (currCount + 1) % SYNC_MAX_DIR_COUNT;
+            byte countBits = (byte) (currCount & 0b00111111);
+            nextMemory = (byte) (nextMemory & 0b11000000);
+            nextMemory = (byte) (nextMemory | countBits);
+            return new Move(true, nextMemory, nextMemory);
+        }
+
+        // if sees an enemy cell, evolve to border behavior
+        int enemyCount = 0;
+        Iterator<Cell> cell_it = nearby_cells.iterator();
+        while (cell_it.hasNext()) {
+            Cell c = cell_it.next();
+            Point cPos = c.getPosition();
+            if (currPos.distance(cPos) >= SYNC_SIGHT_THRESHOLD) {
+                continue;
+            }
+            if (c.player != player_cell.player) {
+                enemyCount++;
+            }
+            if (enemyCount >= SYNC_ENEMY_COUNT_TRIGGER) {
+                nextMemory = (byte) 0b10000000;
+                return border(player_cell, nextMemory, nearby_cells, nearby_pheromes);
+            }
+        }
+
+        // get the next move direction (the "base" move)
+        Point nextBaseVector = syncGetVectorFromCount(currCount);
+        double nextBaseRadians = Math.atan2(nextBaseVector.y, nextBaseVector.x);
+        double nextBaseDegrees = Math.toDegrees(nextBaseRadians);
+
+        // check to see if you're on the edge of a group, or if group too dense
+        cell_it = nearby_cells.iterator();
+        Set<Cell> friendlyNeighbors = new HashSet<Cell>();
+        while (cell_it.hasNext()) {
+            Cell c = cell_it.next();
+            Point cPos = c.getPosition();
+            if (c.player == player_cell.player) {
+                if (currPos.distance(cPos) >= SYNC_INSIDE_SIGHT_THRESHOLD) {
+                    continue;
+                }
+                friendlyNeighbors.add(c);
+            }
+        }
+        if (friendlyNeighbors.size() >= SYNC_INSIDE_CROWDED_THRESHOLD) {
+            double[] arc = getWidestAngle(player_cell, friendlyNeighbors, new HashSet<Pherome>());
+            double diff = (360 + (arc[1] - arc[0]) % 360) % 360;
+            // if all friendlies are grouped on one side of you, or if you see too many friendlies in any direction, evolve out of sync
+            if (diff >= 180 ||
+                friendlyNeighbors.size() >= SYNC_CROWDED_THRESHOLD) {
+                nextMemory = (byte) 0b10000000;
+                return border(player_cell, nextMemory, nearby_cells, nearby_pheromes);
+            }
+        }
+
+        // get normalized min angle and max angle for the arc to look in for movement
+        double degMin = (360 + (nextBaseDegrees - SYNC_LOOK_ARC/2) % 360) % 360;
+        double degMax = (360 + (nextBaseDegrees + SYNC_LOOK_ARC/2) % 360) % 360;
+
+        // get all neighbors that fall in the arc of movement (+/-60 degrees from base)
+        Vector<Double> neighborAngles = new Vector<Double>(); // in degrees
+        cell_it = nearby_cells.iterator();
+        while (cell_it.hasNext()) {
+            Cell c = cell_it.next();
+            Point neighborPos = c.getPosition();
+            if (currPos.distance(neighborPos) >= SYNC_SIGHT_THRESHOLD) {
+                continue;
+            }
+            Point vectorToNeighbor = new Point(neighborPos.x - currPos.x, neighborPos.y - currPos.y);
+            double neighborRadians = Math.atan2(vectorToNeighbor.y, vectorToNeighbor.x);
+            double neighborDegrees = Math.toDegrees(neighborRadians);
+            neighborDegrees = (360 + neighborDegrees % 360) % 360; // normalize
+            if (syncAngleIsBetween(degMin, degMax, neighborDegrees)) {
+                neighborAngles.add(neighborDegrees);
+            }
+        } // end while loop through nearby_cells
+
+        // get widest angle within the look arc
+        neighborAngles.add(degMax); // add the max angle into the vector
+        neighborAngles.sort(new Comparator<Double>() {
+                // sorts the angles in order of difference from min angle to max angle
+                public int compare(Double d1, Double d2) {
+                    double a = (360 + (d1-degMin) % 360) % 360;
+                    double b = (360 + (d2-degMin) % 360) % 360;
+                    if (a == b) return 0;
+                    else if (a < b) return -1;
+                    else return 1;
+                }
+            });
+        double widestAngle = 0;
+        double prevAngle = degMin;
+        double startAngle = 0;
+        double endAngle = 0;
+        for (double d : neighborAngles) {
+            double diff = (360 + (d - prevAngle) % 360) % 360;
+            if (diff > widestAngle) {
+                widestAngle = diff;
+                startAngle = prevAngle;
+                endAngle = d;
+            }
+            prevAngle = d;
+        }
+
+        // get center of the widest angle to move in that direction
+        double nextMoveDegrees = (360 + (endAngle - widestAngle/2) % 360) % 360;
+        double nextMoveRadians = Math.toRadians(nextMoveDegrees);
+        double dx = Cell.move_dist * Math.cos(nextMoveRadians);
+        double dy = Cell.move_dist * Math.sin(nextMoveRadians);
+        Point nextVector = new Point(dx, dy);
+        if (collides(player_cell, nextVector, nearby_cells, nearby_pheromes)) {
+            // collision, move to widest arc general
+            double[] arc = getWidestAngle(player_cell, nearby_cells, nearby_pheromes);
+            double arcMin = arc[0];
+            double arcMax = arc[1];
+            widestAngle = (360 + (arcMax - arcMin) % 360) % 360;
+            nextMoveDegrees = (360 + (arcMax - widestAngle/2) % 360) % 360;
+            nextMoveRadians = Math.toRadians(nextMoveDegrees);
+            dx = Cell.move_dist * Math.cos(nextMoveRadians);
+            dy = Cell.move_dist * Math.sin(nextMoveRadians);
+            nextVector = new Point(dx, dy);
+            int tries = 0;
+            while (collides(player_cell, nextVector, nearby_cells, nearby_pheromes)) {
+                if (tries >= MAX_TRIES) {
+                    nextVector = new Point(0, 0);
+                    break;
+                }
+                nextVector = new Point(nextVector.x * NEXT_REDUCE_MOVE, nextVector.y * NEXT_REDUCE_MOVE);
+                tries++;
+            }
+        }
+
+        // increment count and write to new memory
+        currCount = (currCount + 1) % SYNC_MAX_DIR_COUNT;
+        byte countBits = (byte) (currCount & 0b00111111);
+        nextMemory = (byte) (nextMemory & 0b11000000);
+        nextMemory = (byte) (nextMemory | countBits);
+        nextMove = new Move(nextVector, nextMemory);
+
+        return nextMove;
+    }
+
+    // finds if an angle is between a min and a max angle
+    private boolean syncAngleIsBetween(double degMin, double degMax, double angle) {
+        if (degMin < degMax) {
+            return (angle >= degMin && angle <= degMax);
+        }
+        else {
+            return (angle >= degMin || angle <= degMax);
+        }
+    }
+
+    private Point syncGetVectorFromCount(int count) {
+        double theta = Math.toRadians((360 / (double)SYNC_MAX_DIR_COUNT) * count);
+        double dx = Cell.move_dist * Math.cos(theta);
+        double dy = Cell.move_dist * Math.sin(theta);
+        return new Point(dx, dy);
+    }
+
+    /* Move away from friendlies (in widest angle)
+       Within widest angle away from friendlies, choose widest angle from enemies
+     */
+    private Move border(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        Point currPos = player_cell.getPosition();
+        Point nextVector = new Point(0, 0);
+        Move nextMove = new Move(new Point(0, 0), memory);
+
+        // reproduce if able
+        if (player_cell.getDiameter() >= 2) {
+            return new Move(true, memory, memory);
+        }
+
+        // find widest angle away from friendlies
+        Set<Cell> friendlyNeighbors = new HashSet<Cell>();
+        Set<Cell> enemyNeighbors = new HashSet<Cell>();
+        Iterator<Cell> cell_it = nearby_cells.iterator();
+        while (cell_it.hasNext()) {
+            Cell c = cell_it.next();
+            Point cPos = c.getPosition();
+            if (currPos.distance(cPos) <= BORD_SIGHT_THRESHOLD) {
+                if (c.player == player_cell.player) {
+                    friendlyNeighbors.add(c);
+                }
+                else {
+                    enemyNeighbors.add(c);
+                }
+            }
+        }
+
+        Set<Pherome> pheromeNeighbors = new HashSet<Pherome>();
+        Iterator<Pherome> pher_it = nearby_pheromes.iterator();
+        while (pher_it.hasNext()) {
+            Pherome p = pher_it.next();
+            Point pPos = p.getPosition();
+            if (currPos.distance(pPos) <= BORD_SIGHT_THRESHOLD) {
+                pheromeNeighbors.add(p);
+            }
+        }
+
+        Vector<Double> neighborAngles = new Vector<Double>(); // in degrees
+        cell_it = friendlyNeighbors.iterator();
+        while (cell_it.hasNext()) {
+            Cell c = cell_it.next();
+            Point neighborPos = c.getPosition();
+            Point vectorToNeighbor = new Point(neighborPos.x - currPos.x, neighborPos.y - currPos.y);
+            double neighborRadians = Math.atan2(vectorToNeighbor.y, vectorToNeighbor.x);
+            double neighborDegrees = Math.toDegrees(neighborRadians);
+            neighborDegrees = (360 + neighborDegrees % 360) % 360; // normalize
+            neighborAngles.add(neighborDegrees);
+        }
+
+        neighborAngles.sort(new Comparator<Double>() {
+                // sorts the angles in order of difference from min angle to max angle
+                public int compare(Double d1, Double d2) {
+                    double a = (360 + (d1) % 360) % 360;
+                    double b = (360 + (d2) % 360) % 360;
+                    if (a == b) return 0;
+                    else if (a < b) return -1;
+                    else return 1;
+                }
+            });
+
+        double[] friendlyWidestArc = null;
+        double widestAngle = 0;
+        double startAngle = 0;
+        double endAngle = 0;
+        double diffAngle = 0;
+        if (neighborAngles.size() > 1) {
+            // more than 1 friendly, get widest angle
+            double prevAngle = neighborAngles.lastElement();
+            for (double d : neighborAngles) {
+                double diff = (360 + (d - prevAngle) % 360) % 360;
+                if (diff > widestAngle) {
+                    widestAngle = diff;
+                    startAngle = prevAngle;
+                    endAngle = d;
+                }
+                prevAngle = d;
+            }
+        }
+        else if (neighborAngles.size() == 1) {
+            // one friendly, move away
+            double neighborAngle = neighborAngles.lastElement();
+            startAngle = (360 + (neighborAngle - 90) % 360) % 360;
+            endAngle = (360 + (neighborAngle + 90) % 360) % 360;
+            widestAngle = 180;
+        }
+        else {
+            startAngle = 0;
+            endAngle = 360;
+            widestAngle = 360;
+        }
+
+        double moveDegrees = (360 + ((gen.nextDouble() * widestAngle) + startAngle) % 360) % 360;
+        double moveRadians = Math.toRadians(moveDegrees);
+        double dx = Cell.move_dist * Math.cos(moveRadians);
+        double dy = Cell.move_dist * Math.sin(moveRadians);
+        nextVector = new Point(dx, dy);
+
+        // if collides, try random directions MAX_TRIES, then back off a bit and repeat
+        // BORD_MAX_BACKOFF_TRIES times
+        int backOffTries = 0;
+        double newMoveDist = Cell.move_dist;
+        while (collides(player_cell, nextVector, nearby_cells, nearby_pheromes)) {
+            if (backOffTries >= BORD_MAX_BACKOFF_TRIES) {
+                nextMove = new Move(new Point(0, 0), memory);
+                break;
+            }
+            int randomDirTries = 0;
+            while (collides(player_cell, nextVector, nearby_cells, nearby_pheromes)) {
+                if (randomDirTries >= MAX_TRIES) {
+                    break;
+                }
+                moveDegrees = (360 + ((gen.nextDouble() * widestAngle) + startAngle) % 360) % 360;
+                moveRadians = Math.toRadians(moveDegrees);
+                dx = Cell.move_dist * Math.cos(moveRadians);
+                dy = Cell.move_dist * Math.sin(moveRadians);
+                nextVector = new Point(dx, dy);
+                randomDirTries++;
+            }
+            if (!collides(player_cell, nextVector, nearby_cells, nearby_pheromes)) {
+                break;
+            }
+            newMoveDist *= NEXT_REDUCE_MOVE;
+            backOffTries++;
+        }
+
+        nextMove = new Move(nextVector, memory);
+        return nextMove;
+    }
+
+    /*
+     * T-cell strategy: move toward big enemies
+     */
+    private Move tcell(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        Move move = null;
+
+        Cell enemy = findBiggestEnemy(player_cell, nearby_cells, nearby_pheromes);
+        if (enemy == null) {
+            return scout(player_cell, memory, nearby_cells, nearby_pheromes);
+        }
+
+        Point enemyPos = enemy.getPosition();
+        Point playerPos = player_cell.getPosition();
+        Point vector = new Point(enemyPos.x - playerPos.x, enemyPos.y - playerPos.y);
+        double magnitude = getMagnitude(vector.x, vector.y);
+
+        double moveDist = 0.5*player_cell.getDiameter()*1.01 + 0.5*enemy.getDiameter() + 0.00011;
+        Point newDest = new Point(vector.x * moveDist / magnitude, vector.y * moveDist / magnitude);
+
+        return new Move(newDest, memory);
     }
 
     // check if moving player_cell by vector collides with any nearby cell or hostile pherome
     private boolean collides(Cell player_cell, Point vector, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-	Iterator<Cell> cell_it = nearby_cells.iterator();
-	Point destination = player_cell.getPosition().move(vector);
-	while (cell_it.hasNext()) {
-	    Cell other = cell_it.next();
-	    if ( destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter() + 0.5*other.getDiameter() + 0.00011)
-		return true;
-	}
-	Iterator<Pherome> pherome_it = nearby_pheromes.iterator();
-	while (pherome_it.hasNext()) {
-	    Pherome other = pherome_it.next();
-            if (other.player != player_cell.player && destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter() + 0.0001)
-                return true;
-	}
-	return false;
+    	Iterator<Cell> cell_it = nearby_cells.iterator();
+    	Point destination = player_cell.getPosition().move(vector);
+    	while (cell_it.hasNext()) {
+    	    Cell other = cell_it.next();
+    	    if ( destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter()*1.01 + 0.5*other.getDiameter() + 0.00011)
+    		return true;
+    	}
+    	Iterator<Pherome> pherome_it = nearby_pheromes.iterator();
+    	while (pherome_it.hasNext()) {
+    	    Pherome other = pherome_it.next();
+                if (other.player != player_cell.player && destination.distance(other.getPosition()) < 0.5*player_cell.getDiameter()*1.01 + 0.0001)
+                    return true;
+    	}
+    	return false;
     }
-    
+
     // convert an angle (in 3-deg increments) to a vector with magnitude Cell.move_dist (max allowed movement distance)
     private Point extractVectorFromAngle(int arg) {
-	double theta = Math.toRadians( 3* (double)arg );
-	double dx = Cell.move_dist * Math.cos(theta);
-	double dy = Cell.move_dist * Math.sin(theta);
-	return new Point(dx, dy);
+    	double theta = Math.toRadians(30 * (double)arg);
+    	double dx = Cell.move_dist * Math.cos(theta);
+    	double dy = Cell.move_dist * Math.sin(theta);
+    	return new Point(dx, dy);
     }
 
-    private int getDirection(byte mem) {
-            return (mem & 3);
+    /*
+     * Returns an angle in radians.
+     */
+    private double getAngleFromVector(Point vector) {
+        return Math.atan2(vector.y, vector.x);
     }
 
-    private int getDuration(byte mem) {
-            return ((mem >> 2) & 3);
-    }
-    private byte writeDirection(int direction, byte memory) {
-            int actualDirection = direction % NUMDIRECTIONS;
-            byte mem = (byte)((memory & 0b11111100) | actualDirection);
-            return mem;
-    }
-    private byte writeDuration(int duration, byte memory, int maxDuration) {
-            int actualDuration = duration % maxDuration;
-            byte mem = (byte)((memory & 0b11110011) | (actualDuration << 2));
-            return mem;
+    /*
+     * Get magnitude of a vector given x,y.
+     */
+    private double getMagnitude(double x, double y) {
+        return Math.sqrt(x * x + y * y);
     }
 
-    private int getMaxDuration(int t, int numdirs) {
-            return Math.min((t / numdirs), DURATION_CAP);
+    /*
+     * Get the positive version of the angle.
+     */
+    private double getPositiveAngle(double angle, String unit) {
+        double adj = 0;
+        if (unit == "d")
+            adj = 360;
+        else
+            adj = 2 * Math.PI;
+        return (angle > 0 ? angle : angle + adj);
     }
 
-    private Point getNewDest(int direction) {
-
-            if (direction == 0) {
-                    return new Point(0*Cell.move_dist,-1*Cell.move_dist);
-
-            } else if (direction == 1) {
-                    return new Point(1*Cell.move_dist,0*Cell.move_dist);
-
-            } else if (direction == 2) {
-                    return new Point(0*Cell.move_dist,1*Cell.move_dist);
-
-            } else if (direction == 3) {
-                    return new Point(-1*Cell.move_dist,0*Cell.move_dist);
-
-            } else {
-                    return new Point(0,0);
-            }
-
+    /*
+     * Get the negative version of the angle.
+     */
+    private double getNegativeAngle(double angle, String unit) {
+        double adj = 0;
+        if (unit == "d")
+            adj = 360;
+        else
+            adj = 2 * Math.PI;
+        return (angle > 0 ? angle : angle - adj);
     }
+
+
+    /*
+     * Get the tangent vectors to the other cell.
+     */
+    private Point[] getTangentVectors(Point self, Point other, double radius) {
+        Point hypot = new Point(other.x - self.x, other.y - self.y);
+        // find the angle to center and add/subtract the angle to the tangent
+        double mainAngle = getAngleFromVector(hypot);
+        double deltAngle = Math.asin(radius / getMagnitude(hypot.x, hypot.y));
+        // magnitude of tangent vectors
+        double magnitude = getMagnitude(hypot.x, hypot.y) * Math.cos(deltAngle);
+
+        Point upperVector = new Point(magnitude * Math.cos(mainAngle + deltAngle),
+                                      magnitude * Math.sin(mainAngle + deltAngle));
+        Point lowerVector = new Point(magnitude * Math.cos(mainAngle - deltAngle),
+                                      magnitude * Math.sin(mainAngle - deltAngle));
+
+        return new Point[] {lowerVector, upperVector};
+    }
+
+
 
     private int getStrategy(byte memory) {
-        int strategy = (memory >> 7) & 1;
+        int strategy = (memory >> 6) & 0b11;
         return strategy;
+    }
+
+    /*
+     * Looks at nearby cells and finds the biggest enemy
+     */
+    private Cell findBiggestEnemy(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        Cell biggestEnemy = null;
+        double maxDiam = 0;
+        boolean approachable = false;
+        for (Cell c : nearby_cells) {
+            if (c.player == player_cell.player || player_cell.distance(c) > player_cell.getDiameter() * 2)
+                continue;
+            if (c.getDiameter() > maxDiam) {
+                biggestEnemy = c;
+                maxDiam = c.getDiameter();
+            }
+        }
+
+        return biggestEnemy;
+    }
+
+    /*
+     * Same as method below but sets a default [0,360] range.
+     */
+    private double[] getWidestAngle(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+        return getWidestAngle(player_cell, nearby_cells, nearby_pheromes, new double[] {0.0,360.0});
+    }
+
+    /*
+     * Args:
+     *  bounds: [lower, upper] angle bounds that we're looking at
+     * Normalizes angles to a [0,360] range.
+     * Returns an array of doubles containing the lower and upper angles that border the widest angle
+     * e.g. if the widest angle is 30 degrees between 10 and 40 degrees,
+     *      we would return [10.0, 40.0]
+     */
+    private double[] getWidestAngle(Cell player_cell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes, double[] bounds) {
+        boolean bounded = (bounds[1] - bounds[0] != 360);
+        double adjustment = (bounds[0] < bounds[1] ? bounds[0] : getNegativeAngle(bounds[0], "d"));
+        double lowerBound = 0;
+        double upperBound = bounds[1] - adjustment;
+
+        List<Point> neighbors = new ArrayList<Point>();
+        Iterator<Cell> cell_it = nearby_cells.iterator();
+        Point currentPosition = player_cell.getPosition();
+
+        // get all nearby cell position vectors
+        while (cell_it.hasNext()) {
+            Cell curr = cell_it.next();
+            if (curr.player == player_cell.player) {
+                if (player_cell.distance(curr) > FRIENDLY_AVOID_DIST) // ignore far friendly cells
+                    continue;
+            }
+            else if (player_cell.distance(curr) > AVOID_DIST) // don't worry about far away cells
+                continue;
+
+            Point currPos = curr.getPosition();
+            double currRad = curr.getDiameter() / 2;
+            Point[] vectors = getTangentVectors(currentPosition, currPos, currRad);
+
+            for (Point v : vectors) {
+                double adjustedAngle = (getPositiveAngle(Math.toDegrees(getAngleFromVector(v)), "d") - adjustment) % 360;
+                if (adjustedAngle > lowerBound && adjustedAngle < upperBound) {
+                    neighbors.add(v);
+                }
+            }
+        }
+        // do pheromes too why not
+        Iterator<Pherome> ph_it = nearby_pheromes.iterator();
+        while (ph_it.hasNext()) {
+            Pherome curr = ph_it.next();
+            if (curr.player == player_cell.player)
+                continue;
+            if (player_cell.distance(curr) > PH_AVOID_DIST)
+                continue;
+            Point currPos = curr.getPosition();
+            Point v = new Point(currPos.x - currentPosition.x, currPos.y - currentPosition.y);
+            double adjustedAngle = (getPositiveAngle(Math.toDegrees(getAngleFromVector(v)), "d") - adjustment) % 360;
+            if (adjustedAngle > lowerBound && adjustedAngle < upperBound) {
+                neighbors.add(v);
+            }
+        }
+
+        if (neighbors.size() < 1) { // case: no cells
+            return null;
+        } else if (neighbors.size() == 1 && !bounded) { // case: if only one thing nearby
+            // just move in the opposite direction
+            Point other = neighbors.get(0);
+            double otherVector = getPositiveAngle(Math.toDegrees(getAngleFromVector(other)), "d");
+            return new double[] {otherVector, otherVector + 360};
+        } else { // case: cells too close, get the widest angle
+            neighbors.sort(new Comparator<Point>() {
+                public int compare(Point v1, Point v2) {
+                    double a1 = getPositiveAngle(Math.toDegrees(getAngleFromVector(v1)), "d");
+                    double a2 = getPositiveAngle(Math.toDegrees(getAngleFromVector(v2)), "d");
+
+                    if (a1 == a2) return 0;
+                    else if (a1 < a2) return -1;
+                    else return 1;
+                }
+            });
+
+            // find widest angle
+            double lowerAngle = 0; // smaller angle that borders the widest angle
+            double widestAngle = 0;
+            for (int i = 0; i <= neighbors.size(); i++) {
+                double a1;
+                double a2;
+                if (i == 0) {
+                    a1 = (bounded ? lowerBound : getAngleFromVector(neighbors.get(neighbors.size()-1)));
+                } else {
+                    a1 = getPositiveAngle(getAngleFromVector(neighbors.get(i-1)), "r");
+                }
+                if (i == neighbors.size()) {
+                    if (bounded) {
+                        a2 = upperBound;
+                    } else {
+                        continue;
+                    }
+                } else {
+                    a2 = getPositiveAngle(getAngleFromVector(neighbors.get(i)), "r");
+                }
+                double deltAngle = Math.abs(a2 - a1);
+                if (deltAngle > widestAngle) {
+                    widestAngle = deltAngle;
+                    lowerAngle = a1;
+                }
+            }
+
+            return new double[] {lowerAngle, lowerAngle + widestAngle};
+        }
+
     }
 }

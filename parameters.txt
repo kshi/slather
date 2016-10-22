@@ -1,0 +1,21 @@
+
+n = 2
+5 groups (sufficiently dense sampling)
+d = 2, t = 10
+
+n = 1, d = 5, t = 20
+pairwise
+
+n=20, d=2, t=15, all groups
+
+d=1, t=2, default everything else
+
+n=63, default everything else
+(with 5 groups?)
+
+d=10, t=1
+
+d=4,t=4,n=1
+
+
+

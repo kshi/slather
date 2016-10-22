@@ -1,250 +1,244 @@
 package slather.g7;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Random;
-import java.util.Set;
-
+import java.util.*;
+import slather.g7.strategies.*;
 import slather.sim.Cell;
-import slather.sim.GridObject;
 import slather.sim.Move;
 import slather.sim.Pherome;
 import slather.sim.Point;
 
 public class Player implements slather.sim.Player {
 
-	private Random gen;
+	public static Random gen = new Random();
+	private Strategy strategy;
+
+	public static int T, T1 = 2, T2 = 8;
+	public static double D, D1 = 2.0, D2 = 6.0;
+	public static int num_def_sides;
+	public static double vision = 5.0;
+	public static double autismStartAngle = Math.PI;
+
+	// This map will contain all the scenario -> strategy info
+	public static HashMap<Scenario, StrategyType> strategyPerScenario;
 
 	@Override
-	public void init(double d, int t) {
-		gen = new Random();
+	public void init(double d, int t, int side_length) {
+		
+		T = t;
+		D = d;
+		strategy = new AutismStrategy();
+		num_def_sides = Integer.max(4, T);
+		
+		if(strategyPerScenario==null){
+//            System.out.println("Need to initialize strategy map");
+            initScenarioStrategyMapping(d, t);
+		}
+		
 	}
 
 	@Override
 	public Move play(Cell player_cell, byte memory, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+		
+//		long startTime = System.nanoTime();
 
-		// Convert the byte memory to binary string for easier usage
-		Memory m = new Memory(memory);
+		// Check the type of cell
+		String memStr = DefenderMemory.byteToString(memory);
+		char defOrExp = memStr.charAt(0);
+		
+		/*
+		 * 0: Explorer 1: Defender
+		 */
+		Memory memObj;
+		//dummy memory
+		if(memStr.equals("00000000")){
+			memObj = new DummyMemory();
+		}else if (defOrExp == '0') {
+			ExplorerMemory thisMem = ExplorerMemory.getNewObject();
+			thisMem.initialize(memory);
+			memObj = thisMem;
+		} else if (defOrExp == '1') {
+			DefenderMemory thisMem = DefenderMemory.getNewObject();
+			thisMem.initialize(memory);
+			memObj = thisMem;
+		} else {
+			memObj = DefenderMemory.getNewObject();
+		}
+
+		Scenario currentScenario = getScenario(player_cell, nearby_cells, nearby_pheromes);
+//		System.out.println("Scenario is "+currentScenario.name());
+		StrategyType st = strategyPerScenario.get(currentScenario);
+//		System.out.println("Current strategy is "+st.name());
+		
+		Move toTake;
+		if (st == StrategyType.REPRODUCE) {
+			Strategy mindSet = StrategyFactory.getStrategyByType(st);
+			toTake = mindSet.generateMove(player_cell, memObj, nearby_cells, nearby_pheromes);
+			return toTake;
+		} else if (st == StrategyType.CIRCLE){
+			Strategy mindSet = StrategyFactory.getStrategyByType(st);
+			DefenderMemory thisMem = DefenderMemory.getNewObject();
+			thisMem.initialize(memory);
+			memObj = thisMem;
+			toTake = mindSet.generateMove(player_cell, memObj, nearby_cells, nearby_pheromes);
+			
+//			System.out.println("Not keep distance, need to check.");
+			toTake=adjustDistance(toTake,player_cell,memObj,nearby_cells,nearby_pheromes);
+			
+			return toTake;
+		} else if (st == StrategyType.EXPLORER){
+			Strategy mindSet = StrategyFactory.getStrategyByType(st);
+			ExplorerMemory thisMem = ExplorerMemory.getNewObject();
+			thisMem.initialize(memory);
+			memObj = thisMem;
+			toTake = mindSet.generateMove(player_cell, memObj, nearby_cells, nearby_pheromes);
+			
+			//System.out.println("Not keep distance, need to check.");
+			toTake=adjustDistance(toTake,player_cell,memObj,nearby_cells,nearby_pheromes);
+			
+			return toTake;
+		} else {
+//			long time1=System.nanoTime();
+//			long time1mil=(time1-startTime)/1000000;
+//			System.out.println("Time point 1 in play "+time1mil);
+			
+			Strategy mindSet = StrategyFactory.getStrategyByType(st);
+			toTake = mindSet.generateMove(player_cell, memObj, nearby_cells, nearby_pheromes);
+			
+//			long time2=System.nanoTime();
+//			long time2mil=(time2-time1)/1000000;
+//			System.out.println("Time point 2 in play "+time2mil);
+			
+			//adjust distance moving
+			if(st!=StrategyType.KEEP_DISTANCE){
+				//System.out.println("Not keep distance, need to check.");
+				toTake=adjustDistance(toTake,player_cell,memObj,nearby_cells,nearby_pheromes);
+			}
+			
+//			long time3=System.nanoTime();
+//			long time3mil=(time3-time2)/1000000;
+//			System.out.println("Time point 3 in play "+time3mil);
+		}
 
 		/*
-		 * If cell can reproduce, do it. Otherwise, move based on clustering
-		 * strategy
+		 * Todo: Add distance check to ensure that we can grow after move.
 		 */
-
-		// Reproduction
-		if (player_cell.getDiameter() >= 2) {
-			byte childMemory = generateChildMemories(memory);
-			return new Move(true, childMemory, oppositeChild(childMemory).getByte());
+		/*Point dir = toTake.vector;
+		System.out.println("Checking the distance for growth.");
+		dir = ToolBox.checkSpaceForGrowth(player_cell, dir, nearby_cells, nearby_pheromes);
+		toTake = new Move(dir, toTake.memory);
+		System.out.println("Checked direction with regard to growth is x:" + dir.x + " y:" + dir.y);
+		
+		 If we cannot move in the chosen direction, keep a distance with things around 
+		if(Math.abs(dir.x) < 0.01 && Math.abs(dir.y) < 0.01){
+			System.out.println("The cell cannot move in this direction. Fall back to keeping a distance with everything.");
+			toTake = new AutismStrategy().generateMove(player_cell, m, nearby_cells, nearby_pheromes);
+			dir = ToolBox.checkSpaceForGrowth(player_cell, dir, nearby_cells, nearby_pheromes);
+			toTake = new Move(dir, toTake.memory);
+		}else{
+			System.out.println("Moving in this turn");
+		}*/
+//		long endTime = System.nanoTime();
+//
+//		long duration = (endTime - startTime)/1000000;  //divide by 1000000 to get milliseconds.
+//		System.out.println("Play function takes "+duration+" milliseconds.");
+		
+		return toTake;
+	}
+	private Move adjustDistance(Move toTake, Cell player_cell, Memory m,Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes){
+		Point dir = toTake.vector;
+		//System.out.println("Checking the distance for growth.");
+		dir = ToolBox.checkSpaceForGrowth(player_cell, dir, nearby_cells, nearby_pheromes);
+		toTake = new Move(dir, toTake.memory);
+		//System.out.println("Checked direction with regard to growth is x:" + dir.x + " y:" + dir.y);
+		
+		 //If we cannot move in the chosen direction, keep a distance with things around 
+		Move newMove;
+		if(Math.abs(dir.x) < 0.01 && Math.abs(dir.y) < 0.01){
+			//System.out.println("The cell cannot move in this direction. Fall back to keeping a distance with everything.");
+			toTake = new AutismStrategy().generateMove(player_cell, m, nearby_cells, nearby_pheromes);
+			dir = ToolBox.checkSpaceForGrowth(player_cell, dir, nearby_cells, nearby_pheromes);
+			newMove = new Move(dir, toTake.memory);
+		}else{
+			//System.out.println("Moving in this turn");
+			newMove=toTake;
 		}
-
-		Point moveDirection = getCumulativeDirection(player_cell, nearby_cells, nearby_pheromes);
-
-		// Last bit denotes direction of movement
-		// If it is 1, move towards our own cells
-		if (m.opposite == 1) {
-			moveDirection = new Point(-moveDirection.x, -moveDirection.y);
-		}
-
-		Point finalMoveDirection = addRandomnessAndGenerateFinalDirection(moveDirection);
-
-		byte nextMoveMemory = generateNextMoveMemory(memory);
-
-		return new Move(finalMoveDirection, nextMoveMemory);
+		return newMove;
 	}
-
-	/* Scaffolding zone: Fill in the functions here */
-	public byte generateChildMemories(byte memory) {
-		// Child will go only 2 steps away for now
-		Memory child = new Memory(3, 2, 0);
-
-		return child.getByte();
-	}
-
-	public Point getCumulativeDirection(Cell myCell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		System.out.println("Join forces from cells:");
-		Point fromCells = joinForcesFromCells(myCell, nearby_cells, 1.0);
-		System.out.println("Join forces from pheromes:");
-		Point fromPheromes = joinForcesFromPheromes(myCell, nearby_pheromes, 0.5);
-		Point normalized = normalizeDistance(fromCells, fromPheromes);
-
-		return normalized;
-	}
-
-	private Point addRandomnessAndGenerateFinalDirection(Point direction) {
-		double desiredMean = 0.0;
-		double desiredStandardDeviation = 0.1;// Set a very small deviation so
-												// that the whole force thing
-												// still makes sense
-		double offX = direction.x + gen.nextGaussian() * desiredStandardDeviation + desiredMean;
-		double offY = direction.y + gen.nextGaussian() * desiredStandardDeviation + desiredMean;
-
-		Point newDir = normalizeDistance(new Point(offX, offY));
-		System.out.println("The randomized direction has X: " + newDir.x + " Y: " + newDir.y);
-		return newDir;
-	}
-
-	/* Helper functions */
-	private byte generateNextMoveMemory(byte memory) {
-		Memory memoryObject = new Memory(memory);
-		if (memoryObject.opposite == 1) {
-			
-			if (memoryObject.moveDirectionCountdown == 0) {
-				memoryObject.opposite = 0;
-				memoryObject.offsetCountDown = 3;
-				
-				// Setting countdown based on cell life
-				if (memoryObject.moveDirectionCountSetter >= 2) {
-					memoryObject.moveDirectionCountSetter = 3;
-					memoryObject.moveDirectionCountdown = 7;
-				} else {
-					(memoryObject.moveDirectionCountSetter)++;
-					memoryObject.moveDirectionCountdown = 2 * memoryObject.moveDirectionCountSetter;
-				}
-				
-			} else {
-				memoryObject.moveDirectionCountdown--;
-			}
-			
-		} else {
-			
-			if (memoryObject.moveDirectionCountdown == 0) {
-				memoryObject.opposite = 1;
-				memoryObject.offsetCountDown = 0;
-
-				// Setting countdown based on cell life
-				if (memoryObject.moveDirectionCountSetter >= 2) {
-					memoryObject.moveDirectionCountSetter = 3;
-					memoryObject.moveDirectionCountdown = 7;
-				} else {
-					(memoryObject.moveDirectionCountSetter)++;
-					memoryObject.moveDirectionCountdown = 2 * memoryObject.moveDirectionCountSetter;
-				}
-				
-			} else {
-				if (memoryObject.offsetCountDown == 0) {
-					memoryObject.moveDirectionCountdown--;
-				} else {
-					memoryObject.offsetCountDown--;
-				}
-			}
-			
-		}
-
-		return memoryObject.getByte();
-	}
-
-	/*
-	 * Based on the assumption that we chase opponent cells and get away from
-	 * friendly ones.
-	 */
-	public static Point joinForcesFromCells(Cell myCell, Set<Cell> cells, double weight) {
-		Point myPos = myCell.getPosition();
-
-		double offX = 0.0;
-		double offY = 0.0;
-		for (Cell c : cells) {
-			Point cPos = c.getPosition();
-			/* The smaller the distance, the larger the force */
-			int chaseIt;
+	
+	private Scenario getScenario(Cell myCell, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
+		Set<Cell> friends = new HashSet<>();
+		Set<Cell> enemies = new HashSet<>();
+		for (Cell c : nearby_cells) {
 			if (c.player == myCell.player)
-				chaseIt = -1;
+				friends.add(c);
 			else
-				chaseIt = 1;
-
-			double diffX = cPos.x - myPos.x;
-			double diffY = cPos.y - myPos.y;
-			// The force is proportional to the mass of the cell, which depends
-			// on the square of diameter in a 2d environment
-			offX += chaseIt * diffX * weight * (c.getDiameter() * c.getDiameter());
-			offY += chaseIt * diffY * weight * (c.getDiameter() * c.getDiameter());
+				enemies.add(c);
+		}
+		if (myCell.getDiameter() >= 2.0) {
+			return Scenario.MAX_SIZE;
+		}
+		if (ScenarioClass.isAboutToReproduce(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.ALMOST_REPRODUCTION;
+		}
+		if (ScenarioClass.isOnlyMyPherome(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.ONE_PHEROMONE;
+		}
+		if (ScenarioClass.isEmpty(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.EMPTYNESS;
+		}
+		if (ScenarioClass.isClusterBorder(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.CLUSTER_BORDER;
+		}
+		if (ScenarioClass.isOnlyFriends(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.FRIENDS;
+		}
+		if (ScenarioClass.isOnlyEnemies(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.ENEMIES;
+		}
+		if (ScenarioClass.isNearbyFriends(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.NEARBY_FRIENDS;
+		}
+		if (ScenarioClass.isNearbyEnemies(myCell, nearby_cells, nearby_pheromes)) {
+			return Scenario.NEARBY_ENEMIES;
 		}
 
-		System.out.println("The merged force from cells is X: " + offX + " Y: " + offY);
-
-		return new Point(offX, offY);
+		return Scenario.DISPERSED;
 	}
 
-	public static Point joinForcesFromPheromes(Cell myCell, Set<Pherome> pheromes, double weight) {
-		Point myPos = myCell.getPosition();
-		double offX = 0.0;
-		double offY = 0.0;
-		for (Pherome p : pheromes) {
-			Point pPos = p.getPosition();
-			/* The smaller the distance, the larger the force */
-			int chaseIt;
-			if (p.player == myCell.player)
-				chaseIt = -1;
-			else
-				chaseIt = 1;
+	public Strategy getStrategy() {
+		return strategy;
+	}
 
-			double diffX = pPos.x - myPos.x;
-			double diffY = pPos.y - myPos.y;
-			// The force is proportional to the mass of the cell, which depends
-			// on the square of diameter in a 2d environment
-			offX += chaseIt * diffX * weight;
-			offY += chaseIt * diffY * weight;
+	public void initScenarioStrategyMapping(double d, int t) {
+		if (d >= D2) {
+			if (t <= T1) {
+				strategyPerScenario = StrategyMaps.bigDsmallT();
+			} else if (t <= T2) {
+				strategyPerScenario = StrategyMaps.bigDmediumT();
+			} else {
+				strategyPerScenario = StrategyMaps.bigDbigT();
+			}
+		}else if (d >= D1){
+			if (t <= T1) {
+				strategyPerScenario = StrategyMaps.smallDsmallT();
+			} else if (t <= T2) {
+				strategyPerScenario = StrategyMaps.smallDmediumT();
+			} else {
+				strategyPerScenario = StrategyMaps.smallDbigT();
+			}
+			
+		}else {
+			if (t <= T1) {
+				strategyPerScenario = StrategyMaps.mediumDsmallT();
+			} else if (t <= T2) {
+				strategyPerScenario = StrategyMaps.mediumDmediumT();
+			} else {
+				strategyPerScenario = StrategyMaps.mediumDbigT();
+			}
 		}
-
-		System.out.println("The merged force from pheromes is X: " + offX + " Y: " + offY);
-		return new Point(offX, offY);
+		
+		//strategyPerScenario = StrategyMaps.defaultMapInit();
 	}
-
-	public static Point normalizeDistance(Point... points) {
-		double offX = 0.0;
-		double offY = 0.0;
-		for (Point p : points) {
-			offX += p.x;
-			offY += p.y;
-		}
-		// Normalize the force to 1mm length
-		double hypotenuse = Math.sqrt(offX * offX + offY * offY);
-
-		Point toReturn;
-		if (hypotenuse == 0.0) {
-			toReturn = new Point(0.0, 0.0);
-		} else {
-			offX /= hypotenuse;
-			offY /= hypotenuse;
-			toReturn = new Point(offX, offY);
-		}
-
-		System.out.println("The normalized direction is X: " + toReturn.x + " Y: " + toReturn.y);
-		return toReturn;
-	}
-
-	public static void reportMemory(Memory m) {
-		System.out.println("Memory has offsetCountDown: " + m.offsetCountDown);
-		System.out.println("Memory directionCounter:" + m.moveDirectionCountdown);
-		System.out.println("Whether to go opposite:" + m.opposite);
-
-	}
-
-	private boolean collides(Cell player_cell, Point vector, Set<Cell> nearby_cells, Set<Pherome> nearby_pheromes) {
-		Iterator<Cell> cell_it = nearby_cells.iterator();
-		Point destination = player_cell.getPosition().move(vector);
-		while (cell_it.hasNext()) {
-			Cell other = cell_it.next();
-			if (destination.distance(other.getPosition()) < 0.5 * player_cell.getDiameter() + 0.5 * other.getDiameter()
-					+ 0.00011)
-				return true;
-		}
-		Iterator<Pherome> pherome_it = nearby_pheromes.iterator();
-		while (pherome_it.hasNext()) {
-			Pherome other = pherome_it.next();
-			if (other.player != player_cell.player
-					&& destination.distance(other.getPosition()) < 0.5 * player_cell.getDiameter() + 0.0001)
-				return true;
-		}
-		return false;
-	}
-
-	public static Memory oppositeChild(Memory m) {
-		return new Memory(m.offsetCountDown, m.moveDirectionCountdown, 1 - m.opposite);
-	}
-
-	public static Memory oppositeChild(byte b) {
-		Memory m = new Memory(b);
-		return new Memory(m.offsetCountDown, m.moveDirectionCountdown, 1 - m.opposite);
-	}
+	
 
 }

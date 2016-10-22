@@ -156,8 +156,8 @@ class Simulator {
 			System.exit(1);
 		    }
 		    if (e instanceof TimeoutException) {
-			//System.err.println("Player " + groups[active_player] + " is now invalidated");
-			//players[active_player] = null;
+			System.out.println("Player " + groups[active_player] + " is now invalidated");
+			players[active_player] = null;
 		    }
 		}
 		if (move != null) {

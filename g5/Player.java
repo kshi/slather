@@ -12,6 +12,7 @@ import java.util.*;
 //at state 2, move away from friendly cells until there are expansion_ratio more enemy cells than friendly
 //switch to late game at 8 cells near you. At this point the mid game function is called. If it fails, (which it 
 //probably will) just move away from the nearest cell.
+@SuppressWarnings("unchecked")
 public class Player implements slather.sim.Player {
     
     private static final double THRESHOLD_DISTANCE = 1;

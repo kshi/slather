@@ -20,7 +20,7 @@ class Simulator {
     private static boolean exit_on_exception = false;
 
     // random generator
-    private static Random random = new Random();
+    private static Random random;
 
     // default sizes
     private static int side_length = 100; //10cm
@@ -52,6 +52,7 @@ class Simulator {
     private static int t = 10; // number of turns after which pherome wears out
     private static int p = 10; // number of players. default is ten copies of g0
     private static int n = 1; // number of starting cells per player
+    private static Long seed = null;
 
     private static Grid grid;
 
@@ -60,7 +61,11 @@ class Simulator {
     private static boolean log = false;
     
     
-    private static boolean init() {	
+    private static boolean init() {
+	if (seed != null) 
+	    random = new Random(seed.longValue());
+	else
+	    random = new Random();
 	grid = new Grid((double)side_length, d);
 	for (int g=0; g<p; g++) {
 	    for (int j=0; j<n; j++) {
@@ -258,7 +263,12 @@ class Simulator {
 		} else if (args[a].equals("-d") || args[a].equals("--distance")) {
 		    if (++a == args.length)
 			throw new IllegalArgumentException("Missing vision distance");
-		    d = Double.parseDouble(args[a]);		    
+		    d = Double.parseDouble(args[a]);
+		}
+		else if (args[a].equals("-seed") || args[a].equals("-i")){
+		    if (++a == args.length)
+			throw new IllegalArgumentException("Missing vision distance");
+		    seed = Long.parseLong(args[a]);			    
 		} else if (args[a].equals("-t") || args[a].equals("--turns")) {
 		    if (++a == args.length)
 			throw new IllegalArgumentException("Missing pherome duration");
@@ -337,9 +347,9 @@ class Simulator {
 	}
 	if (!gui && log) 
 	    System.err.println("GUI: disabled");
-	else if (refresh < 0)
+	else if (refresh < 0 && log)
 	    System.err.println("GUI: enabled  (0 FPS)  [reload manually]");
-	else if (refresh == 0)
+	else if (refresh == 0 && log)
 	    System.err.println("GUI: enabled  (max FPS)");
 	else {
 	    double fps = 1000.0 / refresh;
@@ -462,6 +472,7 @@ class Simulator {
     }
 
     // compile and load source files
+    @SuppressWarnings("unchecked")
     private static void load(boolean compile) throws IOException,
 						     ReflectiveOperationException
     {

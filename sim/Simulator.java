@@ -14,7 +14,7 @@ class Simulator {
 
     // timeouts
     private static long init_timeout = 1000;
-    private static long play_timeout = 40;
+    private static long play_timeout = 50;
 
     // exit on player exception
     private static boolean exit_on_exception = false;
@@ -66,6 +66,7 @@ class Simulator {
 	    random = new Random(seed.longValue());
 	else
 	    random = new Random();
+	play_timeout = play_timeout * (d-1) * (d-1);
 	grid = new Grid((double)side_length, d);
 	for (int g=0; g<p; g++) {
 	    for (int j=0; j<n; j++) {
@@ -98,12 +99,12 @@ class Simulator {
 		    }, init_timeout);
 	    } catch (Exception e) {
 		if (players[g] == null)
-		    System.err.println("Exception by group " + groups[g] + " constructor");
+		    System.out.println("Exception by group " + groups[g] + " constructor");
 		else
-		    System.err.println("Exception by group " + groups[g] + " init()");
+		    System.out.println("Exception by group " + groups[g] + " init()");
 		e.printStackTrace();
 		if (exit_on_exception) {
-		    System.err.println("Exit on exception ...");
+		    System.out.println("Exit on exception ...");
 		    System.exit(1);
 		}
 		players[g] = null;
@@ -148,8 +149,8 @@ class Simulator {
 			    }
 			}, play_timeout);
 		} catch (Exception e) {
-		    System.err.println("Exception by " + groups[active_player] + " play()");
-		    e.printStackTrace();
+		    //System.err.println("Exception by " + groups[active_player] + " play()");
+		    //e.printStackTrace();
 		    if (exit_on_exception) {
 			System.err.println("Exit on exception ...");
 			System.exit(1);

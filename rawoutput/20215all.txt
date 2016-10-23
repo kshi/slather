@@ -1,0 +1,100 @@
+Turns played: 838
+Group g1 scored: 231
+Group g2 scored: 789
+Group g3 scored: 202
+Group g4 scored: 0 (disqualified)
+Group g5 scored: 578
+Group g6 scored: 500
+Group g7 scored: 482
+Group g8 scored: 225
+Group g9 scored: 606
+Turns played: 865
+Group g1 scored: 196
+Group g2 scored: 725
+Group g3 scored: 159
+Group g4 scored: 661
+Group g5 scored: 433
+Group g6 scored: 426
+Group g7 scored: 353
+Group g8 scored: 235
+Group g9 scored: 463
+Turns played: 978
+Group g1 scored: 179
+Group g2 scored: 587
+Group g3 scored: 134
+Group g4 scored: 598
+Group g5 scored: 454
+Group g6 scored: 455
+Group g7 scored: 385
+Group g8 scored: 209
+Group g9 scored: 615
+Turns played: 836
+Group g1 scored: 201
+Group g2 scored: 717
+Group g3 scored: 143
+Group g4 scored: 594
+Group g5 scored: 500
+Group g6 scored: 404
+Group g7 scored: 352
+Group g8 scored: 242
+Group g9 scored: 442
+Turns played: 881
+Group g1 scored: 214
+Group g2 scored: 618
+Group g3 scored: 131
+Group g4 scored: 658
+Group g5 scored: 374
+Group g6 scored: 496
+Group g7 scored: 334
+Group g8 scored: 233
+Group g9 scored: 552
+Turns played: 813
+Group g1 scored: 204
+Group g2 scored: 694
+Group g3 scored: 134
+Group g4 scored: 666
+Group g5 scored: 466
+Group g6 scored: 453
+Group g7 scored: 398
+Group g8 scored: 163
+Group g9 scored: 453
+Turns played: 834
+Group g1 scored: 195
+Group g2 scored: 628
+Group g3 scored: 133
+Group g4 scored: 593
+Group g5 scored: 395
+Group g6 scored: 514
+Group g7 scored: 348
+Group g8 scored: 237
+Group g9 scored: 612
+Turns played: 846
+Group g1 scored: 203
+Group g2 scored: 690
+Group g3 scored: 168
+Group g4 scored: 535
+Group g5 scored: 380
+Group g6 scored: 423
+Group g7 scored: 378
+Group g8 scored: 205
+Group g9 scored: 608
+Turns played: 933
+Group g1 scored: 189
+Group g2 scored: 687
+Group g3 scored: 142
+Group g4 scored: 508
+Group g5 scored: 397
+Group g6 scored: 444
+Group g7 scored: 408
+Group g8 scored: 205
+Group g9 scored: 630
+Turns played: 840
+Group g1 scored: 191
+Group g2 scored: 653
+Group g3 scored: 132
+Group g4 scored: 597
+Group g5 scored: 490
+Group g6 scored: 434
+Group g7 scored: 333
+Group g8 scored: 267
+Group g9 scored: 499

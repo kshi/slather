@@ -14,7 +14,7 @@ class Simulator {
 
     // timeouts
     private static long init_timeout = 1000;
-    private static long play_timeout = 50;
+    private static long play_timeout = 70;
 
     // exit on player exception
     private static boolean exit_on_exception = false;
@@ -66,7 +66,7 @@ class Simulator {
 	    random = new Random(seed.longValue());
 	else
 	    random = new Random();
-	play_timeout = play_timeout * (d-1) * (d-1);
+	play_timeout = play_timeout * ((long)d-1) * ((long)d-1);
 	grid = new Grid((double)side_length, d);
 	for (int g=0; g<p; g++) {
 	    for (int j=0; j<n; j++) {

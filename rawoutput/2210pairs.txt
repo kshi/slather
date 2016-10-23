@@ -1,0 +1,108 @@
+Turns played: 943
+Group g1 scored: 1118
+Group g2 scored: 2173
+Turns played: 1096
+Group g1 scored: 1273
+Group g3 scored: 2404
+Turns played: 1030
+Group g1 scored: 1168
+Group g4 scored: 2087
+Turns played: 1143
+Group g1 scored: 1215
+Group g5 scored: 2387
+Turns played: 1106
+Group g1 scored: 1318
+Group g6 scored: 2067
+Turns played: 950
+Group g1 scored: 1508
+Group g7 scored: 2110
+Turns played: 1069
+Group g1 scored: 1971
+Group g8 scored: 1523
+Turns played: 1034
+Group g1 scored: 1212
+Group g9 scored: 2672
+Turns played: 1073
+Group g2 scored: 2750
+Group g3 scored: 1453
+Turns played: 991
+Group g2 scored: 1970
+Group g4 scored: 1876
+Turns played: 1029
+Group g2 scored: 1974
+Group g5 scored: 2064
+Turns played: 941
+Group g2 scored: 1986
+Group g6 scored: 1759
+Turns played: 907
+Group g2 scored: 2006
+Group g7 scored: 1792
+Turns played: 951
+Group g2 scored: 2398
+Group g8 scored: 1243
+Turns played: 992
+Group g2 scored: 2026
+Group g9 scored: 1987
+Turns played: 1026
+Group g3 scored: 1463
+Group g4 scored: 2758
+Turns played: 1080
+Group g3 scored: 1408
+Group g5 scored: 2680
+Turns played: 1010
+Group g3 scored: 1722
+Group g6 scored: 2012
+Turns played: 1001
+Group g3 scored: 1665
+Group g7 scored: 2583
+Turns played: 1058
+Group g3 scored: 2101
+Group g8 scored: 1611
+Turns played: 1004
+Group g3 scored: 1443
+Group g9 scored: 2991
+Turns played: 976
+Group g4 scored: 14 (disqualified)
+Group g5 scored: 4080
+Turns played: 1004
+Group g4 scored: 1936
+Group g6 scored: 1801
+Turns played: 951
+Group g4 scored: 2 (disqualified)
+Group g7 scored: 4095
+Turns played: 978
+Group g4 scored: 2275
+Group g8 scored: 1527
+Turns played: 975
+Group g4 scored: 2023
+Group g9 scored: 2134
+Turns played: 1054
+Group g5 scored: 2118
+Group g6 scored: 1719
+Turns played: 1049
+Group g5 scored: 2454
+Group g7 scored: 1882
+Turns played: 1043
+Group g5 scored: 2686
+Group g8 scored: 1164
+Turns played: 1101
+Group g5 scored: 2004
+Group g9 scored: 1917
+Turns played: 935
+Group g6 scored: 2003
+Group g7 scored: 1856
+Turns played: 991
+Group g6 scored: 2117
+Group g8 scored: 1322
+Turns played: 1027
+Group g6 scored: 1790
+Group g9 scored: 2212
+Turns played: 1005
+Group g7 scored: 2390
+Group g8 scored: 1534
+Turns played: 978
+Group g7 scored: 1976
+Group g9 scored: 2123
+Turns played: 1048
+Group g8 scored: 1311
+Group g9 scored: 2827

@@ -98,3 +98,13 @@ Group g6 scored: 435
 Group g7 scored: 368
 Group g8 scored: 144
 Group g9 scored: 647
+Turns played: 879
+Group g1 scored: 158
+Group g2 scored: 655
+Group g3 scored: 81
+Group g4 scored: 503
+Group g5 scored: 314
+Group g6 scored: 331
+Group g7 scored: 356
+Group g8 scored: 127
+Group g9 scored: 493

@@ -1,0 +1,103 @@
+Turns played: 999
+Group g1 scored: 32
+Group g2 scored: 565
+Group g3 scored: 285
+Group g4 scored: 458
+Group g5 scored: 400
+Group g6 scored: 481
+Group g7 scored: 539
+Group g8 scored: 231
+Group g9 scored: 438
+Turns played: 1063
+Group g1 scored: 45
+Group g2 scored: 563
+Group g3 scored: 243
+Group g4 scored: 457
+Group g5 scored: 327
+Group g6 scored: 458
+Group g7 scored: 541
+Group g8 scored: 271
+Group g9 scored: 496
+Turns played: 1023
+Group g1 scored: 57
+Group g2 scored: 558
+Group g3 scored: 255
+Group g4 scored: 455
+Group g5 scored: 398
+Group g6 scored: 416
+Group g7 scored: 611
+Group g8 scored: 264
+Group g9 scored: 443
+Turns played: 1055
+Group g1 scored: 29
+Group g2 scored: 495
+Group g3 scored: 247
+Group g4 scored: 454
+Group g5 scored: 405
+Group g6 scored: 461
+Group g7 scored: 565
+Group g8 scored: 273
+Group g9 scored: 481
+Turns played: 1163
+Group g1 scored: 31
+Group g2 scored: 491
+Group g3 scored: 250
+Group g4 scored: 455
+Group g5 scored: 426
+Group g6 scored: 453
+Group g7 scored: 576
+Group g8 scored: 264
+Group g9 scored: 423
+Turns played: 1170
+Group g1 scored: 25
+Group g2 scored: 473
+Group g3 scored: 265
+Group g4 scored: 456
+Group g5 scored: 394
+Group g6 scored: 441
+Group g7 scored: 636
+Group g8 scored: 262
+Group g9 scored: 468
+Turns played: 1048
+Group g1 scored: 27
+Group g2 scored: 531
+Group g3 scored: 269
+Group g4 scored: 462
+Group g5 scored: 425
+Group g6 scored: 433
+Group g7 scored: 649
+Group g8 scored: 256
+Group g9 scored: 416
+Turns played: 1010
+Group g1 scored: 13
+Group g2 scored: 577
+Group g3 scored: 284
+Group g4 scored: 586
+Group g5 scored: 287
+Group g6 scored: 452
+Group g7 scored: 531
+Group g8 scored: 254
+Group g9 scored: 470
+Error during setup: Unknown argument: n
+java.lang.IllegalArgumentException: Unknown argument: n
+	at slather.sim.Simulator.main(Simulator.java:322)
+Turns played: 1078
+Group g1 scored: 23
+Group g2 scored: 518
+Group g3 scored: 266
+Group g4 scored: 526
+Group g5 scored: 448
+Group g6 scored: 417
+Group g7 scored: 608
+Group g8 scored: 253
+Group g9 scored: 422
+Turns played: 1005
+Group g1 scored: 19
+Group g2 scored: 491
+Group g3 scored: 273
+Group g4 scored: 483
+Group g5 scored: 370
+Group g6 scored: 464
+Group g7 scored: 621
+Group g8 scored: 256
+Group g9 scored: 445

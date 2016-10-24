@@ -61,3 +61,60 @@ Group g8 scored: 1431
 Turns played: 1141
 Group g3 scored: 1591
 Group g9 scored: 2763
+Turns played: 1150
+Group g4 scored: 1404
+Group g5 scored: 2760
+Turns played: 1189
+Group g5 scored: 2482
+Group g6 scored: 1457
+Turns played: 1071
+Group g7 scored: 1891
+Group g8 scored: 1644
+Turns played: 1104
+Group g4 scored: 1849
+Group g6 scored: 1971
+Turns played: 968
+Group g4 scored: 1979
+Group g7 scored: 1948
+Turns played: 1019
+Group g6 scored: 1935
+Group g7 scored: 1868
+Turns played: 1157
+Group g5 scored: 2893
+Group g7 scored: 1246
+Turns played: 1054
+Group g6 scored: 1882
+Group g8 scored: 1509
+Turns played: 1042
+Group g4 scored: 1938
+Group g8 scored: 1803
+Turns played: 1053
+Group g7 scored: 1916
+Group g9 scored: 2520
+Turns played: 1193
+Group g5 scored: 2681
+Group g8 scored: 1301
+Turns played: 1099
+Group g8 scored: 1424
+Group g9 scored: 2603
+Turns played: 1159
+Group g6 scored: 1685
+Group g9 scored: 2454
+Turns played: 1078
+Group g8 scored: 1460
+Group g9 scored: 2510
+Turns played: 1079
+Group g4 scored: 1897
+Group g9 scored: 2589
+Turns played: 1132
+Group g5 scored: 2197
+Group g9 scored: 1867
+Turns played: 1156
+Group g5 scored: 2575
+Group g6 scored: 1440
+Turns played: 1131
+Group g5 scored: 2872
+Group g7 scored: 1374
+Turns played: 1104
+Group g5 scored: 2722
+Group g8 scored: 1211
